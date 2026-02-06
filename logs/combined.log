@@ -1,0 +1,84 @@
+{"level":"info","message":"🚀 Server running on port 5000","timestamp":"2026-02-05 20:11:54"}
+{"level":"info","message":"📊 Environment: development","timestamp":"2026-02-05 20:11:54"}
+{"level":"info","message":"POST /api/auth/login","timestamp":"2026-02-05 20:12:49"}
+{"level":"error","message":"getaddrinfo ENOTFOUND db.ccgfmgmuydxbuuywparb.supabase.co","method":"POST","path":"/api/auth/login","stack":"Error: getaddrinfo ENOTFOUND db.ccgfmgmuydxbuuywparb.supabase.co\n    at C:\\Users\\punya\\Downloads\\deployment\\backend\\node_modules\\pg-pool\\index.js:45:11\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at async <anonymous> (C:\\Users\\punya\\Downloads\\deployment\\backend\\src\\routes\\auth.routes.ts:86:18)","timestamp":"2026-02-05 20:12:49"}
+{"level":"info","message":"🚀 Server running on port 5000","timestamp":"2026-02-05 20:33:09"}
+{"level":"info","message":"📊 Environment: development","timestamp":"2026-02-05 20:33:09"}
+{"level":"info","message":"🚀 Server running on port 5000","timestamp":"2026-02-05 22:06:22"}
+{"level":"info","message":"📊 Environment: development","timestamp":"2026-02-05 22:06:22"}
+{"level":"info","message":"🚀 Server running on port 5000","timestamp":"2026-02-05 22:10:46"}
+{"level":"info","message":"📊 Environment: development","timestamp":"2026-02-05 22:10:46"}
+{"level":"info","message":"🚀 Server running on port 5000","timestamp":"2026-02-05 22:31:21"}
+{"level":"info","message":"📊 Environment: development","timestamp":"2026-02-05 22:31:21"}
+{"level":"info","message":"POST /api/auth/signup","timestamp":"2026-02-05 22:50:21"}
+{"level":"error","message":"getaddrinfo ENOTFOUND db.ccgfmgmuydxbuuywparb.supabase.co","method":"POST","path":"/api/auth/signup","stack":"Error: getaddrinfo ENOTFOUND db.ccgfmgmuydxbuuywparb.supabase.co\n    at C:\\Users\\punya\\Downloads\\whatsapp-crm-backend\\whatsapp-crm-backend\\node_modules\\pg-pool\\index.js:45:11\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at async <anonymous> (C:\\Users\\punya\\Downloads\\whatsapp-crm-backend\\whatsapp-crm-backend\\src\\routes\\auth.routes.ts:91:20)","timestamp":"2026-02-05 22:50:21"}
+{"level":"info","message":"🚀 Server running on port 5000","timestamp":"2026-02-05 22:55:49"}
+{"level":"info","message":"📊 Environment: development","timestamp":"2026-02-05 22:55:49"}
+{"level":"info","message":"POST /api/auth/signup","timestamp":"2026-02-05 22:55:58"}
+{"level":"error","message":"getaddrinfo ENOTFOUND db.ccgfmgmuydxbuuywparb.supabase.co","method":"POST","path":"/api/auth/signup","stack":"Error: getaddrinfo ENOTFOUND db.ccgfmgmuydxbuuywparb.supabase.co\n    at C:\\Users\\punya\\Downloads\\whatsapp-crm-backend\\whatsapp-crm-backend\\node_modules\\pg-pool\\index.js:45:11\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at async <anonymous> (C:\\Users\\punya\\Downloads\\whatsapp-crm-backend\\whatsapp-crm-backend\\src\\routes\\auth.routes.ts:91:20)","timestamp":"2026-02-05 22:55:58"}
+{"level":"info","message":"🚀 Server running on port 5000","timestamp":"2026-02-05 22:56:09"}
+{"level":"info","message":"📊 Environment: development","timestamp":"2026-02-05 22:56:09"}
+{"level":"info","message":"POST /api/auth/signup","timestamp":"2026-02-05 22:56:12"}
+{"level":"error","message":"getaddrinfo ENOTFOUND db.ccgfmgmuydxbuuywparb.supabase.co","method":"POST","path":"/api/auth/signup","stack":"Error: getaddrinfo ENOTFOUND db.ccgfmgmuydxbuuywparb.supabase.co\n    at C:\\Users\\punya\\Downloads\\whatsapp-crm-backend\\whatsapp-crm-backend\\node_modules\\pg-pool\\index.js:45:11\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at async <anonymous> (C:\\Users\\punya\\Downloads\\whatsapp-crm-backend\\whatsapp-crm-backend\\src\\routes\\auth.routes.ts:91:20)","timestamp":"2026-02-05 22:56:12"}
+{"level":"info","message":"🚀 Server running on port 5000","timestamp":"2026-02-06 14:58:45"}
+{"level":"info","message":"📊 Environment: development","timestamp":"2026-02-06 14:58:45"}
+{"level":"info","message":"POST /api/auth/signup","timestamp":"2026-02-06 14:59:21"}
+{"level":"error","message":"self-signed certificate in certificate chain","method":"POST","path":"/api/auth/signup","stack":"Error: self-signed certificate in certificate chain\n    at C:\\Users\\punya\\Downloads\\whatsapp-crm-backend\\whatsapp-crm-backend\\node_modules\\pg-pool\\index.js:45:11\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at async <anonymous> (C:\\Users\\punya\\Downloads\\whatsapp-crm-backend\\whatsapp-crm-backend\\src\\routes\\auth.routes.ts:91:20)","timestamp":"2026-02-06 14:59:21"}
+{"level":"info","message":"🚀 Server running on port 5000","timestamp":"2026-02-06 15:01:08"}
+{"level":"info","message":"📊 Environment: development","timestamp":"2026-02-06 15:01:08"}
+{"level":"info","message":"🚀 Server running on port 5000","timestamp":"2026-02-06 15:01:09"}
+{"level":"info","message":"📊 Environment: development","timestamp":"2026-02-06 15:01:09"}
+{"level":"info","message":"🚀 Server running on port 5000","timestamp":"2026-02-06 15:01:12"}
+{"level":"info","message":"📊 Environment: development","timestamp":"2026-02-06 15:01:12"}
+{"level":"info","message":"🚀 Server running on port 5000","timestamp":"2026-02-06 15:01:12"}
+{"level":"info","message":"📊 Environment: development","timestamp":"2026-02-06 15:01:12"}
+{"level":"info","message":"🚀 Server running on port 5000","timestamp":"2026-02-06 15:01:14"}
+{"level":"info","message":"📊 Environment: development","timestamp":"2026-02-06 15:01:14"}
+{"level":"info","message":"🚀 Server running on port 5000","timestamp":"2026-02-06 15:01:16"}
+{"level":"info","message":"📊 Environment: development","timestamp":"2026-02-06 15:01:16"}
+{"level":"info","message":"🚀 Server running on port 5000","timestamp":"2026-02-06 15:02:36"}
+{"level":"info","message":"📊 Environment: development","timestamp":"2026-02-06 15:02:36"}
+{"level":"info","message":"🚀 Server running on port 5000","timestamp":"2026-02-06 15:02:36"}
+{"level":"info","message":"📊 Environment: development","timestamp":"2026-02-06 15:02:36"}
+{"level":"info","message":"🚀 Server running on port 5000","timestamp":"2026-02-06 15:02:51"}
+{"level":"info","message":"📊 Environment: development","timestamp":"2026-02-06 15:02:51"}
+{"level":"info","message":"🚀 Server running on port 5000","timestamp":"2026-02-06 15:02:54"}
+{"level":"info","message":"📊 Environment: development","timestamp":"2026-02-06 15:02:54"}
+{"level":"info","message":"POST /api/auth/signup","timestamp":"2026-02-06 15:04:04"}
+{"level":"error","message":"self-signed certificate in certificate chain","method":"POST","path":"/api/auth/signup","stack":"Error: self-signed certificate in certificate chain\n    at C:\\Users\\punya\\Downloads\\whatsapp-crm-backend\\whatsapp-crm-backend\\node_modules\\pg-pool\\index.js:45:11\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at async <anonymous> (C:\\Users\\punya\\Downloads\\whatsapp-crm-backend\\whatsapp-crm-backend\\src\\routes\\auth.routes.ts:92:20)","timestamp":"2026-02-06 15:04:04"}
+{"level":"info","message":"🚀 Server running on port 5000","timestamp":"2026-02-06 15:05:31"}
+{"level":"info","message":"📊 Environment: development","timestamp":"2026-02-06 15:05:31"}
+{"level":"info","message":"POST /api/auth/signup","timestamp":"2026-02-06 15:05:36"}
+{"level":"error","message":"Tenant or user not found","method":"POST","path":"/api/auth/signup","stack":"error: Tenant or user not found\n    at C:\\Users\\punya\\Downloads\\whatsapp-crm-backend\\whatsapp-crm-backend\\node_modules\\pg-pool\\index.js:45:11\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at async <anonymous> (C:\\Users\\punya\\Downloads\\whatsapp-crm-backend\\whatsapp-crm-backend\\src\\routes\\auth.routes.ts:92:20)","timestamp":"2026-02-06 15:05:36"}
+{"level":"info","message":"🚀 Server running on port 5000","timestamp":"2026-02-06 15:07:14"}
+{"level":"info","message":"📊 Environment: development","timestamp":"2026-02-06 15:07:14"}
+{"level":"info","message":"POST /api/auth/signup","timestamp":"2026-02-06 15:07:18"}
+{"level":"error","message":"Tenant or user not found","method":"POST","path":"/api/auth/signup","stack":"error: Tenant or user not found\n    at C:\\Users\\punya\\Downloads\\whatsapp-crm-backend\\whatsapp-crm-backend\\node_modules\\pg-pool\\index.js:45:11\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at async <anonymous> (C:\\Users\\punya\\Downloads\\whatsapp-crm-backend\\whatsapp-crm-backend\\src\\routes\\auth.routes.ts:92:20)","timestamp":"2026-02-06 15:07:18"}
+{"level":"info","message":"🚀 Server running on port 5000","timestamp":"2026-02-06 15:42:35"}
+{"level":"info","message":"📊 Environment: development","timestamp":"2026-02-06 15:42:35"}
+{"level":"info","message":"POST /api/auth/signup","timestamp":"2026-02-06 15:43:00"}
+{"level":"error","message":"getaddrinfo ENOTFOUND db.ccgfmgmuydxbuuywparb.supabase.co","method":"POST","path":"/api/auth/signup","stack":"Error: getaddrinfo ENOTFOUND db.ccgfmgmuydxbuuywparb.supabase.co\n    at C:\\Users\\punya\\Downloads\\whatsapp-crm-backend\\whatsapp-crm-backend\\node_modules\\pg-pool\\index.js:45:11\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at async <anonymous> (C:\\Users\\punya\\Downloads\\whatsapp-crm-backend\\whatsapp-crm-backend\\src\\routes\\auth.routes.ts:92:20)","timestamp":"2026-02-06 15:43:00"}
+{"level":"info","message":"🚀 Server running on port 5000","timestamp":"2026-02-06 15:49:32"}
+{"level":"info","message":"📊 Environment: development","timestamp":"2026-02-06 15:49:32"}
+{"level":"info","message":"POST /api/auth/signup","timestamp":"2026-02-06 15:49:37"}
+{"level":"error","message":"password authentication failed for user \"postgres\"","method":"POST","path":"/api/auth/signup","stack":"error: password authentication failed for user \"postgres\"\n    at C:\\Users\\punya\\Downloads\\whatsapp-crm-backend\\whatsapp-crm-backend\\node_modules\\pg-pool\\index.js:45:11\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at async <anonymous> (C:\\Users\\punya\\Downloads\\whatsapp-crm-backend\\whatsapp-crm-backend\\src\\routes\\auth.routes.ts:92:20)","timestamp":"2026-02-06 15:49:38"}
+{"level":"info","message":"POST /api/auth/signup","timestamp":"2026-02-06 15:50:54"}
+{"level":"error","message":"password authentication failed for user \"postgres\"","method":"POST","path":"/api/auth/signup","stack":"error: password authentication failed for user \"postgres\"\n    at C:\\Users\\punya\\Downloads\\whatsapp-crm-backend\\whatsapp-crm-backend\\node_modules\\pg-pool\\index.js:45:11\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at async <anonymous> (C:\\Users\\punya\\Downloads\\whatsapp-crm-backend\\whatsapp-crm-backend\\src\\routes\\auth.routes.ts:92:20)","timestamp":"2026-02-06 15:50:54"}
+{"level":"info","message":"🚀 Server running on port 5000","timestamp":"2026-02-06 15:51:23"}
+{"level":"info","message":"📊 Environment: development","timestamp":"2026-02-06 15:51:23"}
+{"level":"info","message":"POST /api/auth/signup","timestamp":"2026-02-06 15:51:26"}
+{"level":"info","message":"🚀 Server running on port 5000","timestamp":"2026-02-06 20:05:24"}
+{"level":"info","message":"📊 Environment: development","timestamp":"2026-02-06 20:05:24"}
+{"level":"info","message":"POST /api/auth/signup","timestamp":"2026-02-06 20:09:47"}
+{"level":"error","message":"Email already registered","method":"POST","path":"/api/auth/signup","stack":"Error: Email already registered\n    at <anonymous> (C:\\Users\\punya\\Project\\whatsapp bot\\v1\\whatsapp-crm-backend\\whatsapp-crm-backend\\src\\routes\\auth.routes.ts:98:11)\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)","timestamp":"2026-02-06 20:09:48"}
+{"level":"info","message":"POST /api/auth/login","timestamp":"2026-02-06 20:12:14"}
+{"level":"info","message":"🚀 Server running on port 5000","timestamp":"2026-02-06 20:26:54"}
+{"level":"info","message":"📊 Environment: development","timestamp":"2026-02-06 20:26:54"}
+{"level":"info","message":"POST /api/auth/login","timestamp":"2026-02-06 20:31:35"}
+{"level":"info","message":"POST /api/auth/login","timestamp":"2026-02-06 20:32:02"}
+{"level":"info","message":"🚀 Server running on port 5000","timestamp":"2026-02-06 20:32:26"}
+{"level":"info","message":"📊 Environment: development","timestamp":"2026-02-06 20:32:26"}
+{"level":"info","message":"POST /api/auth/login","timestamp":"2026-02-06 20:32:36"}
+{"level":"info","message":"POST /api/auth/login","timestamp":"2026-02-06 20:40:07"}
+{"level":"info","message":"POST /api/auth/login","timestamp":"2026-02-06 21:39:19"}
+{"level":"info","message":"POST /api/auth/login","timestamp":"2026-02-06 22:06:21"}
