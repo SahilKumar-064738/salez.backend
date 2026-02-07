@@ -18,6 +18,23 @@ router.get('/', asyncHandler(async (req, res) => {
   res.json(result.rows);
 }));
 
+// Get template by ID
+router.get('/:id', asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const businessId = req.user!.businessId;
+
+  const result = await pool.query(
+    'SELECT * FROM message_templates WHERE id = $1 AND business_id = $2',
+    [id, businessId]
+  );
+
+  if (result.rows.length === 0) {
+    throw new AppError('Template not found', 404);
+  }
+
+  res.json(result.rows[0]);
+}));
+
 // Create template
 router.post('/', asyncHandler(async (req, res) => {
   const { name, content } = req.body;

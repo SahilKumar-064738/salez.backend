@@ -18,13 +18,10 @@ async function migrate() {
     await client.query(`
       CREATE TABLE IF NOT EXISTS businesses (
         id SERIAL PRIMARY KEY,
-        business_name VARCHAR(255) NOT NULL,
-        email VARCHAR(255) UNIQUE NOT NULL,
-        phone VARCHAR(50),
-        address TEXT,
-        status VARCHAR(50) DEFAULT 'active',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        business_name TEXT NOT NULL,
+        email TEXT UNIQUE NOT NULL,
+        status TEXT DEFAULT 'active',
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
       )
     `);
     logger.info('✅ Created businesses table');
@@ -34,13 +31,11 @@ async function migrate() {
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
         business_id INTEGER NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
-        name VARCHAR(255) NOT NULL,
-        email VARCHAR(255) UNIQUE NOT NULL,
-        password_hash VARCHAR(255) NOT NULL,
-        role VARCHAR(50) DEFAULT 'user',
-        status VARCHAR(50) DEFAULT 'active',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        name TEXT NOT NULL,
+        email TEXT NOT NULL,
+        password_hash TEXT NOT NULL,
+        role TEXT DEFAULT 'owner',
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
       )
     `);
     logger.info('✅ Created users table');
@@ -50,15 +45,11 @@ async function migrate() {
       CREATE TABLE IF NOT EXISTS contacts (
         id SERIAL PRIMARY KEY,
         business_id INTEGER NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
-        phone VARCHAR(50) NOT NULL,
-        name VARCHAR(255),
-        email VARCHAR(255),
-        stage VARCHAR(50) DEFAULT 'New',
-        notes TEXT,
-        last_active TIMESTAMP,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE(business_id, phone)
+        phone TEXT NOT NULL,
+        name TEXT,
+        stage TEXT DEFAULT 'New',
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+        last_active TIMESTAMP WITH TIME ZONE
       )
     `);
     logger.info('✅ Created contacts table');
@@ -69,9 +60,7 @@ async function migrate() {
         id SERIAL PRIMARY KEY,
         business_id INTEGER NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
         contact_id INTEGER NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
-        tag VARCHAR(100) NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE(contact_id, tag)
+        tag TEXT NOT NULL
       )
     `);
     logger.info('✅ Created contact_tags table');
@@ -81,55 +70,39 @@ async function migrate() {
       CREATE TABLE IF NOT EXISTS messages (
         id SERIAL PRIMARY KEY,
         business_id INTEGER NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+        whatsapp_account_id INTEGER,
         contact_id INTEGER NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
-        direction VARCHAR(20) NOT NULL CHECK (direction IN ('inbound', 'outbound')),
+        direction TEXT NOT NULL CHECK (direction IN ('inbound', 'outbound')),
         content TEXT NOT NULL,
-        message_type VARCHAR(50) DEFAULT 'text',
-        status VARCHAR(50) DEFAULT 'sent',
-        sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        delivered_at TIMESTAMP,
-        read_at TIMESTAMP,
-        metadata JSONB,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        status TEXT DEFAULT 'sent',
+        sent_at TIMESTAMP WITH TIME ZONE DEFAULT now()
       )
     `);
     logger.info('✅ Created messages table');
 
-    // Create templates table
+    // Create message_templates table
     await client.query(`
-      CREATE TABLE IF NOT EXISTS templates (
+      CREATE TABLE IF NOT EXISTS message_templates (
         id SERIAL PRIMARY KEY,
         business_id INTEGER NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
-        name VARCHAR(255) NOT NULL,
-        category VARCHAR(100),
+        name TEXT NOT NULL,
         content TEXT NOT NULL,
-        variables JSONB,
-        language VARCHAR(10) DEFAULT 'en',
-        status VARCHAR(50) DEFAULT 'active',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        status TEXT DEFAULT 'pending',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
-    logger.info('✅ Created templates table');
+    logger.info('✅ Created message_templates table');
 
     // Create campaigns table
     await client.query(`
       CREATE TABLE IF NOT EXISTS campaigns (
         id SERIAL PRIMARY KEY,
         business_id INTEGER NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
-        name VARCHAR(255) NOT NULL,
-        description TEXT,
-        template_id INTEGER REFERENCES templates(id) ON DELETE SET NULL,
-        status VARCHAR(50) DEFAULT 'draft',
-        scheduled_at TIMESTAMP,
-        started_at TIMESTAMP,
-        completed_at TIMESTAMP,
-        target_count INTEGER DEFAULT 0,
-        sent_count INTEGER DEFAULT 0,
-        delivered_count INTEGER DEFAULT 0,
-        failed_count INTEGER DEFAULT 0,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        template_id INTEGER NOT NULL REFERENCES message_templates(id) ON DELETE CASCADE,
+        name TEXT NOT NULL,
+        scheduled_at TIMESTAMP WITH TIME ZONE,
+        status TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
     logger.info('✅ Created campaigns table');
@@ -155,16 +128,11 @@ async function migrate() {
       CREATE TABLE IF NOT EXISTS automation_rules (
         id SERIAL PRIMARY KEY,
         business_id INTEGER NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
-        name VARCHAR(255) NOT NULL,
-        description TEXT,
-        trigger_type VARCHAR(100) NOT NULL,
-        trigger_config JSONB NOT NULL,
-        action_type VARCHAR(100) NOT NULL,
-        action_config JSONB NOT NULL,
-        conditions JSONB,
-        is_active BOOLEAN DEFAULT true,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        trigger TEXT NOT NULL,
+        condition JSONB NOT NULL,
+        action JSONB NOT NULL,
+        delay_minutes INTEGER DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
     logger.info('✅ Created automation_rules table');
@@ -198,6 +166,46 @@ async function migrate() {
     `);
     logger.info('✅ Created analytics_events table');
 
+    // Create campaign_logs table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS campaign_logs (
+        id SERIAL PRIMARY KEY,
+        campaign_id INTEGER NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
+        contact_id INTEGER NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
+        delivered BOOLEAN DEFAULT false,
+        replied BOOLEAN DEFAULT false,
+        sent_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+      )
+    `);
+    logger.info('✅ Created campaign_logs table');
+
+    // Create pipeline_history table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS pipeline_history (
+        id SERIAL PRIMARY KEY,
+        business_id INTEGER NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+        contact_id INTEGER NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
+        from_stage TEXT,
+        to_stage TEXT NOT NULL,
+        changed_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+      )
+    `);
+    logger.info('✅ Created pipeline_history table');
+
+    // Create whatsapp_accounts table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS whatsapp_accounts (
+        id SERIAL PRIMARY KEY,
+        business_id INTEGER NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+        phone_number TEXT NOT NULL UNIQUE,
+        api_token TEXT,
+        phone_number_id TEXT,
+        status TEXT DEFAULT 'active',
+        connected_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+      )
+    `);
+    logger.info('✅ Created whatsapp_accounts table');
+
     // Create indexes for better performance
     await client.query(`
       CREATE INDEX IF NOT EXISTS idx_contacts_business_id ON contacts(business_id);
@@ -211,6 +219,12 @@ async function migrate() {
       CREATE INDEX IF NOT EXISTS idx_automation_rules_business_id ON automation_rules(business_id);
       CREATE INDEX IF NOT EXISTS idx_analytics_events_business_id ON analytics_events(business_id);
       CREATE INDEX IF NOT EXISTS idx_analytics_events_created_at ON analytics_events(created_at);
+      CREATE INDEX IF NOT EXISTS idx_campaign_logs_campaign_id ON campaign_logs(campaign_id);
+      CREATE INDEX IF NOT EXISTS idx_campaign_logs_contact_id ON campaign_logs(contact_id);
+      CREATE INDEX IF NOT EXISTS idx_pipeline_history_business_id ON pipeline_history(business_id);
+      CREATE INDEX IF NOT EXISTS idx_pipeline_history_contact_id ON pipeline_history(contact_id);
+      CREATE INDEX IF NOT EXISTS idx_whatsapp_accounts_business_id ON whatsapp_accounts(business_id);
+      CREATE INDEX IF NOT EXISTS idx_whatsapp_accounts_phone_number ON whatsapp_accounts(phone_number);
     `);
     logger.info('✅ Created indexes');
 
@@ -226,21 +240,7 @@ async function migrate() {
     `);
     logger.info('✅ Created trigger function');
 
-    // Apply updated_at triggers to relevant tables
-    const tablesWithUpdatedAt = [
-      'businesses', 'users', 'contacts', 'templates', 'campaigns', 'automation_rules'
-    ];
-
-    for (const table of tablesWithUpdatedAt) {
-      await client.query(`
-        DROP TRIGGER IF EXISTS update_${table}_updated_at ON ${table};
-        CREATE TRIGGER update_${table}_updated_at
-        BEFORE UPDATE ON ${table}
-        FOR EACH ROW
-        EXECUTE FUNCTION update_updated_at_column();
-      `);
-    }
-    logger.info('✅ Created triggers for updated_at columns');
+    // Note: Updated_at triggers removed as schema doesn't include updated_at columns
 
     await client.query('COMMIT');
     

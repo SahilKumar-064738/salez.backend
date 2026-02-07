@@ -10,6 +10,7 @@ import templateRoutes from './routes/template.routes.js';
 import automationRoutes from './routes/automation.routes.js';
 import analyticsRoutes from './routes/analytics.routes.js';
 import pipelineRoutes from './routes/pipeline.routes.js';
+import whatsappRoutes from './routes/whatsapp.routes.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { logger } from './utils/logger.js';
 import "dotenv/config";
@@ -52,6 +53,7 @@ app.use('/api/templates', templateRoutes);
 app.use('/api/automation', automationRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/pipeline', pipelineRoutes);
+app.use('/api/whatsapp', whatsappRoutes);
 
 // 404 handler
 app.use((req, res) => {

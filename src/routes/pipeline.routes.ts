@@ -46,13 +46,12 @@ router.get('/', asyncHandler(async (req, res) => {
 }));
 
 // Move contact to different stage
-router.put('/move/:contactId', asyncHandler(async (req, res) => {
-  const { contactId } = req.params;
-  const { stage } = req.body;
+router.post('/move', asyncHandler(async (req, res) => {
+  const { contactId, stage } = req.body;
   const businessId = req.user!.businessId;
 
-  if (!stage) {
-    throw new AppError('Stage is required', 400);
+  if (!contactId || !stage) {
+    throw new AppError('Contact ID and stage are required', 400);
   }
 
   const client = await pool.connect();
