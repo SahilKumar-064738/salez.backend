@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import { pool } from '../config/database.js';
 import { AppError, asyncHandler } from '../middleware/errorHandler.js';
 import { authenticate } from '../middleware/auth.js';
@@ -7,7 +7,7 @@ const router = Router();
 router.use(authenticate);
 
 // Get all templates
-router.get('/', asyncHandler(async (req, res) => {
+router.get('/', asyncHandler(async (req: Request, res: Response) => {
   const businessId = req.user!.businessId;
 
   const result = await pool.query(
@@ -19,7 +19,7 @@ router.get('/', asyncHandler(async (req, res) => {
 }));
 
 // Get template by ID
-router.get('/:id', asyncHandler(async (req, res) => {
+router.get('/:id', asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
   const businessId = req.user!.businessId;
 
@@ -36,7 +36,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
 }));
 
 // Create template
-router.post('/', asyncHandler(async (req, res) => {
+router.post('/', asyncHandler(async (req: Request, res: Response) => {
   const { name, content } = req.body;
   const businessId = req.user!.businessId;
 
@@ -53,7 +53,7 @@ router.post('/', asyncHandler(async (req, res) => {
 }));
 
 // Update template
-router.put('/:id', asyncHandler(async (req, res) => {
+router.put('/:id', asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
   const { name, content, status } = req.body;
   const businessId = req.user!.businessId;
@@ -96,7 +96,7 @@ router.put('/:id', asyncHandler(async (req, res) => {
 }));
 
 // Delete template
-router.delete('/:id', asyncHandler(async (req, res) => {
+router.delete('/:id', asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
   const businessId = req.user!.businessId;
 

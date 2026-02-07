@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import { pool } from '../config/database.js';
 import { AppError, asyncHandler } from '../middleware/errorHandler.js';
 import { authenticate } from '../middleware/auth.js';
@@ -9,7 +9,7 @@ const router = Router();
 router.use(authenticate);
 
 // Get all contacts
-router.get('/', asyncHandler(async (req, res) => {
+router.get('/', asyncHandler(async (req: Request, res: Response) => {
   const { stage, search, page = 1, limit = 50 } = req.query;
   const businessId = req.user!.businessId;
   const offset = (Number(page) - 1) * Number(limit);
@@ -56,7 +56,7 @@ router.get('/', asyncHandler(async (req, res) => {
 }));
 
 // Get single contact
-router.get('/:id', asyncHandler(async (req, res) => {
+router.get('/:id', asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
   const businessId = req.user!.businessId;
 
@@ -77,7 +77,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
 }));
 
 // Create contact
-router.post('/', asyncHandler(async (req, res) => {
+router.post('/', asyncHandler(async (req: Request, res: Response) => {
   const { phone, name, stage = 'New' } = req.body;
   const businessId = req.user!.businessId;
 
@@ -104,7 +104,7 @@ router.post('/', asyncHandler(async (req, res) => {
 }));
 
 // Update contact
-router.put('/:id', asyncHandler(async (req, res) => {
+router.put('/:id', asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
   const { name, phone, stage } = req.body;
   const businessId = req.user!.businessId;
@@ -147,7 +147,7 @@ router.put('/:id', asyncHandler(async (req, res) => {
 }));
 
 // Delete contact
-router.delete('/:id', asyncHandler(async (req, res) => {
+router.delete('/:id', asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
   const businessId = req.user!.businessId;
 
@@ -164,7 +164,7 @@ router.delete('/:id', asyncHandler(async (req, res) => {
 }));
 
 // Add tag to contact
-router.post('/:id/tags', asyncHandler(async (req, res) => {
+router.post('/:id/tags', asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
   const { tag } = req.body;
   const businessId = req.user!.businessId;
@@ -192,7 +192,7 @@ router.post('/:id/tags', asyncHandler(async (req, res) => {
 }));
 
 // Remove tag from contact
-router.delete('/:id/tags/:tag', asyncHandler(async (req, res) => {
+router.delete('/:id/tags/:tag', asyncHandler(async (req: Request, res: Response) => {
   const { id, tag } = req.params;
   const businessId = req.user!.businessId;
 

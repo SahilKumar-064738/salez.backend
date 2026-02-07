@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { pool } from '../config/database.js';
@@ -9,7 +9,7 @@ import { authenticate } from '../middleware/auth.js';
 const router = Router();
 
 // Register (keeping original endpoint)
-router.post('/register', asyncHandler(async (req, res) => {
+router.post('/register', asyncHandler(async (req: Request, res: Response) => {
   const { businessName, email, password, name } = req.body;
 
   if (!businessName || !email || !password || !name) {
@@ -77,7 +77,7 @@ router.post('/register', asyncHandler(async (req, res) => {
 }));
 
 // Signup (alternative endpoint for frontend compatibility)
-router.post('/signup', asyncHandler(async (req, res) => {
+router.post('/signup', asyncHandler(async (req: Request, res: Response) => {
   // Map frontend field names to backend
   const { name, company_name, email, password, companyName } = req.body;
   
@@ -145,7 +145,7 @@ router.post('/signup', asyncHandler(async (req, res) => {
 }));
 
 // Login
-router.post('/login', asyncHandler(async (req, res) => {
+router.post('/login', asyncHandler(async (req: Request, res: Response) => {
   const { email, password } = req.body;
 
   if (!email || !password) {
@@ -192,7 +192,7 @@ router.post('/login', asyncHandler(async (req, res) => {
 }));
 
 // Logout (for frontend compatibility - token-based auth doesn't need server-side logout)
-router.post('/logout', asyncHandler(async (req, res) => {
+router.post('/logout', asyncHandler(async (req: Request, res: Response) => {
   // With JWT, logout is handled client-side by removing the token
   // This endpoint exists for API compatibility
   res.json({ 
@@ -201,7 +201,7 @@ router.post('/logout', asyncHandler(async (req, res) => {
 }));
 
 // Get current user
-router.get('/me', authenticate, asyncHandler(async (req, res) => {
+router.get('/me', authenticate, asyncHandler(async (req: Request, res: Response) => {
   const result = await pool.query(
     `SELECT u.id, u.name, u.email, u.role, u.business_id, b.business_name
      FROM users u

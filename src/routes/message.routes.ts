@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import { pool } from '../config/database.js';
 import { AppError, asyncHandler } from '../middleware/errorHandler.js';
 import { authenticate } from '../middleware/auth.js';
@@ -8,7 +8,7 @@ const router = Router();
 router.use(authenticate);
 
 // List all messages
-router.get('/', asyncHandler(async (req, res) => {
+router.get('/', asyncHandler(async (req: Request, res: Response) => {
   const { contactId, page = 1, limit = 50 } = req.query;
   const businessId = req.user!.businessId;
   const offset = (Number(page) - 1) * Number(limit);
@@ -50,7 +50,7 @@ router.get('/', asyncHandler(async (req, res) => {
 }));
 
 // Get messages for a contact (must come before /:id)
-router.get('/contact/:contactId', asyncHandler(async (req, res) => {
+router.get('/contact/:contactId', asyncHandler(async (req: Request, res: Response) => {
   const { contactId } = req.params;
   const businessId = req.user!.businessId;
 
@@ -75,7 +75,7 @@ router.get('/contact/:contactId', asyncHandler(async (req, res) => {
 }));
 
 // Get message by ID
-router.get('/:id', asyncHandler(async (req, res) => {
+router.get('/:id', asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
   const businessId = req.user!.businessId;
 
@@ -97,7 +97,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
 }));
 
 // Send message
-router.post('/', asyncHandler(async (req, res) => {
+router.post('/', asyncHandler(async (req: Request, res: Response) => {
   const { contactId, content, whatsappAccountId } = req.body;
   const businessId = req.user!.businessId;
 

@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import { pool } from '../config/database.js';
 import { AppError, asyncHandler } from '../middleware/errorHandler.js';
 import { authenticate } from '../middleware/auth.js';
@@ -7,7 +7,7 @@ const router = Router();
 router.use(authenticate);
 
 // Get pipeline view (contacts grouped by stage)
-router.get('/', asyncHandler(async (req, res) => {
+router.get('/', asyncHandler(async (req: Request, res: Response) => {
   const businessId = req.user!.businessId;
 
   const result = await pool.query(
@@ -46,7 +46,7 @@ router.get('/', asyncHandler(async (req, res) => {
 }));
 
 // Move contact to different stage
-router.post('/move', asyncHandler(async (req, res) => {
+router.post('/move', asyncHandler(async (req: Request, res: Response) => {
   const { contactId, stage } = req.body;
   const businessId = req.user!.businessId;
 
@@ -94,7 +94,7 @@ router.post('/move', asyncHandler(async (req, res) => {
 }));
 
 // Get pipeline history
-router.get('/history/:contactId', asyncHandler(async (req, res) => {
+router.get('/history/:contactId', asyncHandler(async (req: Request, res: Response) => {
   const { contactId } = req.params;
   const businessId = req.user!.businessId;
 

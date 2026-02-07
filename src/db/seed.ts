@@ -70,8 +70,8 @@ async function seed() {
         const contactIds = contactResult.rows.map(row => row.id);
 
         // Create sample messages
-        const messageValues = [];
-        const messageParams = [];
+        const messageValues: string[] = [];
+        const messageParams: any[] = [];
         let paramIndex = 1;
 
         contactIds.forEach((contactId, index) => {

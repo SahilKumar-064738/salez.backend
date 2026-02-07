@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import { pool } from '../config/database.js';
 import { AppError, asyncHandler } from '../middleware/errorHandler.js';
 import { authenticate } from '../middleware/auth.js';
@@ -7,7 +7,7 @@ const router = Router();
 router.use(authenticate);
 
 // List automation rules
-router.get('/', asyncHandler(async (req, res) => {
+router.get('/', asyncHandler(async (req: Request, res: Response) => {
   const businessId = req.user!.businessId;
   const result = await pool.query(
     'SELECT * FROM automation_rules WHERE business_id = $1 ORDER BY id DESC',
@@ -32,7 +32,7 @@ router.get('/', asyncHandler(async (req, res) => {
 }));
 
 // Get automation rule by ID
-router.get('/:id', asyncHandler(async (req, res) => {
+router.get('/:id', asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
   const businessId = req.user!.businessId;
 
@@ -58,7 +58,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
 }));
 
 // Create automation rule
-router.post('/', asyncHandler(async (req, res) => {
+router.post('/', asyncHandler(async (req: Request, res: Response) => {
   const { trigger, condition, action, delayMinutes = 0 } = req.body;
   const businessId = req.user!.businessId;
 
@@ -91,7 +91,7 @@ router.post('/', asyncHandler(async (req, res) => {
 }));
 
 // Update automation rule
-router.put('/:id', asyncHandler(async (req, res) => {
+router.put('/:id', asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
   const { trigger, condition, action, delayMinutes } = req.body;
   const businessId = req.user!.businessId;
@@ -147,7 +147,7 @@ router.put('/:id', asyncHandler(async (req, res) => {
 }));
 
 // Delete automation rule
-router.delete('/:id', asyncHandler(async (req, res) => {
+router.delete('/:id', asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
   const businessId = req.user!.businessId;
 

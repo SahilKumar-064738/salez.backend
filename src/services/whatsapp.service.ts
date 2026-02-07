@@ -189,16 +189,16 @@ class WhatsAppService {
     });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
+      const errorData = await response.json().catch(() => ({})) as any;
       throw new AppError(
-        errorData.error?.message || `WhatsApp API error: ${response.statusText}`,
+        (errorData as any).error?.message || `WhatsApp API error: ${response.statusText}`,
         response.status
       );
     }
 
-    const data = await response.json();
+    const data = await response.json() as any;
     return {
-      messageId: data.messages?.[0]?.id || data.id || 'unknown'
+      messageId: (data as any).messages?.[0]?.id || (data as any).id || 'unknown'
     };
   }
 

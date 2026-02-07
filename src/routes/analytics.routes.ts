@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import { pool } from '../config/database.js';
 import { AppError, asyncHandler } from '../middleware/errorHandler.js';
 import { authenticate } from '../middleware/auth.js';
@@ -7,7 +7,7 @@ const router = Router();
 router.use(authenticate);
 
 // Get analytics summary
-router.get('/summary', asyncHandler(async (req, res) => {
+router.get('/summary', asyncHandler(async (req: Request, res: Response) => {
   const businessId = req.user!.businessId;
 
   // Total contacts
@@ -66,7 +66,7 @@ router.get('/summary', asyncHandler(async (req, res) => {
 }));
 
 // Get message analytics
-router.get('/messages', asyncHandler(async (req, res) => {
+router.get('/messages', asyncHandler(async (req: Request, res: Response) => {
   const businessId = req.user!.businessId;
   const { startDate, endDate } = req.query;
 
@@ -136,7 +136,7 @@ router.get('/messages', asyncHandler(async (req, res) => {
 }));
 
 // Get campaign analytics by ID (must come before /campaigns)
-router.get('/campaigns/:id', asyncHandler(async (req, res) => {
+router.get('/campaigns/:id', asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
   const businessId = req.user!.businessId;
 
@@ -168,7 +168,7 @@ router.get('/campaigns/:id', asyncHandler(async (req, res) => {
 }));
 
 // Get campaign analytics (general, not by ID)
-router.get('/campaigns', asyncHandler(async (req, res) => {
+router.get('/campaigns', asyncHandler(async (req: Request, res: Response) => {
   const businessId = req.user!.businessId;
 
   // Campaigns by status
@@ -211,7 +211,7 @@ router.get('/campaigns', asyncHandler(async (req, res) => {
 }));
 
 // Get dashboard analytics
-router.get('/dashboard', asyncHandler(async (req, res) => {
+router.get('/dashboard', asyncHandler(async (req: Request, res: Response) => {
   const businessId = req.user!.businessId;
 
   // Total contacts

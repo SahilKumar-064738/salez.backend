@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import { pool } from '../config/database.js';
 import { AppError, asyncHandler } from '../middleware/errorHandler.js';
 import { authenticate, optionalAuth } from '../middleware/auth.js';
@@ -8,7 +8,7 @@ import { logger } from '../utils/logger.js';
 const router = Router();
 
 // Webhook endpoint (no auth required, but should verify webhook signature)
-router.post('/webhook', optionalAuth, asyncHandler(async (req, res) => {
+router.post('/webhook', optionalAuth, asyncHandler(async (req: Request, res: Response) => {
   const mode = req.query['hub.mode'];
   const token = req.query['hub.verify_token'];
   const challenge = req.query['hub.challenge'];
@@ -53,7 +53,7 @@ router.post('/webhook', optionalAuth, asyncHandler(async (req, res) => {
 router.use(authenticate);
 
 // List WhatsApp accounts for business
-router.get('/accounts', asyncHandler(async (req, res) => {
+router.get('/accounts', asyncHandler(async (req: Request, res: Response) => {
   const businessId = req.user!.businessId;
 
   const result = await pool.query(
@@ -65,7 +65,7 @@ router.get('/accounts', asyncHandler(async (req, res) => {
 }));
 
 // Get WhatsApp account by ID
-router.get('/accounts/:id', asyncHandler(async (req, res) => {
+router.get('/accounts/:id', asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
   const businessId = req.user!.businessId;
 
@@ -86,7 +86,7 @@ router.get('/accounts/:id', asyncHandler(async (req, res) => {
 }));
 
 // Connect/Add WhatsApp account
-router.post('/accounts', asyncHandler(async (req, res) => {
+router.post('/accounts', asyncHandler(async (req: Request, res: Response) => {
   const { phoneNumber, apiToken, phoneNumberId } = req.body;
   const businessId = req.user!.businessId;
 
@@ -114,7 +114,7 @@ router.post('/accounts', asyncHandler(async (req, res) => {
 }));
 
 // Update WhatsApp account
-router.put('/accounts/:id', asyncHandler(async (req, res) => {
+router.put('/accounts/:id', asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
   const { apiToken, phoneNumberId, status } = req.body;
   const businessId = req.user!.businessId;
@@ -157,7 +157,7 @@ router.put('/accounts/:id', asyncHandler(async (req, res) => {
 }));
 
 // Delete/Disconnect WhatsApp account
-router.delete('/accounts/:id', asyncHandler(async (req, res) => {
+router.delete('/accounts/:id', asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
   const businessId = req.user!.businessId;
 

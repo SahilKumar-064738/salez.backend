@@ -1,5 +1,4 @@
-// Campaign Routes
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import { pool } from '../config/database.js';
 import { AppError, asyncHandler } from '../middleware/errorHandler.js';
 import { authenticate } from '../middleware/auth.js';
@@ -7,7 +6,7 @@ import { authenticate } from '../middleware/auth.js';
 const router = Router();
 router.use(authenticate);
 
-router.get('/', asyncHandler(async (req, res) => {
+router.get('/', asyncHandler(async (req: Request, res: Response) => {
   const businessId = req.user!.businessId;
   const result = await pool.query(
     `SELECT c.*, t.name as template_name 
@@ -20,7 +19,7 @@ router.get('/', asyncHandler(async (req, res) => {
   res.json(result.rows);
 }));
 
-router.post('/', asyncHandler(async (req, res) => {
+router.post('/', asyncHandler(async (req: Request, res: Response) => {
   const { name, templateId, scheduledAt, status } = req.body;
   const businessId = req.user!.businessId;
 
@@ -37,7 +36,7 @@ router.post('/', asyncHandler(async (req, res) => {
 }));
 
 // Get campaign by ID
-router.get('/:id', asyncHandler(async (req, res) => {
+router.get('/:id', asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
   const businessId = req.user!.businessId;
 
@@ -57,7 +56,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
 }));
 
 // Update campaign
-router.put('/:id', asyncHandler(async (req, res) => {
+router.put('/:id', asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
   const { name, templateId, scheduledAt, status } = req.body;
   const businessId = req.user!.businessId;
@@ -104,7 +103,7 @@ router.put('/:id', asyncHandler(async (req, res) => {
 }));
 
 // Delete campaign
-router.delete('/:id', asyncHandler(async (req, res) => {
+router.delete('/:id', asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
   const businessId = req.user!.businessId;
 
