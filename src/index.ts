@@ -82,7 +82,7 @@ app.listen(PORT, () => {
 });
 
 // Graceful shutdown
-let campaignScheduler: NodeJS.Timer;
+let campaignScheduler: ReturnType<typeof setInterval>;
 
 process.on('SIGTERM', async () => {
   logger.info('SIGTERM received, closing server...');
