@@ -1,0 +1,8 @@
+{"level":"info","message":"🚀 Server running on port 5000","timestamp":"2026-02-07 22:48:36"}
+{"level":"info","message":"📊 Environment: development","timestamp":"2026-02-07 22:48:36"}
+{"level":"info","message":"📅 Starting campaign scheduler (checking every 5 minutes)","timestamp":"2026-02-07 22:48:36"}
+{"level":"debug","message":"No scheduled campaigns to execute","timestamp":"2026-02-07 22:48:36"}
+{"level":"info","message":"🚀 Server running on port 5000","timestamp":"2026-02-07 22:48:42"}
+{"level":"info","message":"📊 Environment: development","timestamp":"2026-02-07 22:48:42"}
+{"level":"info","message":"📅 Starting campaign scheduler (checking every 5 minutes)","timestamp":"2026-02-07 22:48:42"}
+{"level":"debug","message":"No scheduled campaigns to execute","timestamp":"2026-02-07 22:48:42"}

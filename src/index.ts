@@ -13,6 +13,8 @@ import pipelineRoutes from './routes/pipeline.routes.js';
 import whatsappRoutes from './routes/whatsapp.routes.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { logger } from './utils/logger.js';
+import { apiLimiter, authLimiter, webhookLimiter } from './middleware/rateLimiter.js';
+import { startCampaignScheduler } from './services/campaign.executor.js';
 
 dotenv.config();
 
@@ -48,8 +50,11 @@ app.get('/health', async (req, res) => {
   }
 });
 
-// API Routes
-app.use('/api/auth', authRoutes);
+// Apply general rate limiting to all API routes
+app.use('/api/', apiLimiter);
+
+// API Routes with specific rate limiters
+app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/contacts', contactRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/campaigns', campaignRoutes);
@@ -57,7 +62,7 @@ app.use('/api/templates', templateRoutes);
 app.use('/api/automation', automationRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/pipeline', pipelineRoutes);
-app.use('/api/whatsapp', whatsappRoutes);
+app.use('/api/whatsapp', whatsappRoutes); // Webhook has its own limiter in the route file
 
 // 404 handler
 app.use((req, res) => {
@@ -71,11 +76,22 @@ app.use(errorHandler);
 app.listen(PORT, () => {
   logger.info(`🚀 Server running on port ${PORT}`);
   logger.info(`📊 Environment: ${process.env.NODE_ENV}`);
+  
+  // Start campaign scheduler (checks every 5 minutes)
+  startCampaignScheduler(5);
 });
 
 // Graceful shutdown
+let campaignScheduler: NodeJS.Timer;
+
 process.on('SIGTERM', async () => {
   logger.info('SIGTERM received, closing server...');
+  
+  // Stop campaign scheduler
+  if (campaignScheduler) {
+    clearInterval(campaignScheduler);
+  }
+  
   await pool.end();
   process.exit(0);
 });

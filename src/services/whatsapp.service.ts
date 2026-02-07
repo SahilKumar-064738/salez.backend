@@ -1,6 +1,7 @@
 import { pool } from '../config/database.js';
 import { logger } from '../utils/logger.js';
 import { AppError } from '../middleware/errorHandler.js';
+import { triggerAutomation } from './automation.executor.js';
 
 interface WhatsAppMessage {
   to: string;
@@ -272,6 +273,17 @@ class WhatsAppService {
           [businessId, phoneNumber, contact.profile?.name || null]
         );
         contactId = newContact.rows[0].id;
+        
+        // Trigger automation for new contact
+        await triggerAutomation('contact_created', {
+          contact_id: contactId,
+          business_id: businessId,
+          phone: phoneNumber,
+          name: contact.profile?.name || null,
+          stage: 'New'
+        }).catch(error => {
+          logger.error('Error triggering contact_created automation:', error);
+        });
       } else {
         contactId = contactResult.rows[0].id;
         // Update last_active
@@ -296,11 +308,25 @@ class WhatsAppService {
       }
 
       // Save message to database
-      await pool.query(
+      const messageResult = await pool.query(
         `INSERT INTO messages (business_id, whatsapp_account_id, contact_id, direction, content, status, sent_at)
-         VALUES ($1, $2, $3, 'inbound', $4, 'delivered', to_timestamp($5))`,
+         VALUES ($1, $2, $3, 'inbound', $4, 'delivered', to_timestamp($5))
+         RETURNING id`,
         [businessId, whatsappAccountId, contactId, messageText, timestamp]
       );
+      
+      const newMessageId = messageResult.rows[0].id;
+
+      // Trigger automation for message received
+      await triggerAutomation('message_received', {
+        message_id: newMessageId,
+        contact_id: contactId,
+        business_id: businessId,
+        content: messageText,
+        direction: 'inbound'
+      }).catch(error => {
+        logger.error('Error triggering message_received automation:', error);
+      });
 
       logger.info(`Processed incoming WhatsApp message from ${phoneNumber}`);
     } catch (error) {
@@ -312,3 +338,99 @@ class WhatsAppService {
 
 export const whatsappService = new WhatsAppService();
 export default whatsappService;
+
+// Export wrapper functions for easier access
+export async function sendMessage(
+  businessId: number,
+  contactPhone: string,
+  content: string,
+  whatsappAccountId?: number
+): Promise<number | null> {
+  const result = await whatsappService.sendMessage(businessId, contactPhone, content, whatsappAccountId);
+  if (!result.success) {
+    throw new Error(result.error || 'Failed to send message');
+  }
+  
+  // Get contact ID to save message
+  const contactResult = await pool.query(
+    'SELECT id FROM contacts WHERE business_id = $1 AND phone = $2',
+    [businessId, contactPhone]
+  );
+  
+  const contactId = contactResult.rows[0]?.id;
+  if (!contactId) {
+    throw new Error('Contact not found');
+  }
+  
+  // Save message to database
+  const messageResult = await pool.query(
+    `INSERT INTO messages (business_id, whatsapp_account_id, contact_id, direction, content, status)
+     VALUES ($1, $2, $3, 'outbound', $4, 'sent')
+     RETURNING id`,
+    [businessId, whatsappAccountId || null, contactId, content]
+  );
+  
+  return messageResult.rows[0].id;
+}
+
+export async function sendTemplateMessage(
+  businessId: number,
+  contactPhone: string,
+  templateId: number | string,
+  whatsappAccountId?: number
+): Promise<number | null> {
+  // If templateId is a number, get template name from database
+  let templateName: string;
+  
+  if (typeof templateId === 'number') {
+    const templateResult = await pool.query(
+      'SELECT name FROM message_templates WHERE id = $1 AND business_id = $2',
+      [templateId, businessId]
+    );
+    
+    if (templateResult.rows.length === 0) {
+      throw new Error('Template not found');
+    }
+    
+    templateName = templateResult.rows[0].name;
+  } else {
+    templateName = templateId;
+  }
+  
+  const result = await whatsappService.sendTemplateMessage(
+    businessId,
+    contactPhone,
+    templateName,
+    [],
+    whatsappAccountId
+  );
+  
+  if (!result.success) {
+    throw new Error(result.error || 'Failed to send template message');
+  }
+  
+  // Get contact ID to save message
+  const contactResult = await pool.query(
+    'SELECT id FROM contacts WHERE business_id = $1 AND phone = $2',
+    [businessId, contactPhone]
+  );
+  
+  const contactId = contactResult.rows[0]?.id;
+  if (!contactId) {
+    throw new Error('Contact not found');
+  }
+  
+  // Save message to database
+  const messageResult = await pool.query(
+    `INSERT INTO messages (business_id, whatsapp_account_id, contact_id, direction, content, status)
+     VALUES ($1, $2, $3, 'outbound', $4, 'sent')
+     RETURNING id`,
+    [businessId, whatsappAccountId || null, contactId, `Template: ${templateName}`]
+  );
+  
+  return messageResult.rows[0].id;
+}
+
+export async function processIncomingMessage(webhookData: any, businessId: number): Promise<void> {
+  return whatsappService.processIncomingMessage(webhookData, businessId);
+}

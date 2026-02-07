@@ -14,6 +14,41 @@ async function migrate() {
     
     await client.query('BEGIN');
 
+    // Create ENUM types for better type safety
+    await client.query(`
+      DO $$ BEGIN
+        CREATE TYPE pipeline_stage AS ENUM ('New', 'Contacted', 'Qualified', 'Proposal', 'Negotiation', 'Won', 'Lost');
+      EXCEPTION
+        WHEN duplicate_object THEN null;
+      END $$;
+    `);
+    
+    await client.query(`
+      DO $$ BEGIN
+        CREATE TYPE message_status AS ENUM ('sent', 'delivered', 'read', 'failed');
+      EXCEPTION
+        WHEN duplicate_object THEN null;
+      END $$;
+    `);
+    
+    await client.query(`
+      DO $$ BEGIN
+        CREATE TYPE message_direction AS ENUM ('inbound', 'outbound');
+      EXCEPTION
+        WHEN duplicate_object THEN null;
+      END $$;
+    `);
+    
+    await client.query(`
+      DO $$ BEGIN
+        CREATE TYPE subscription_status AS ENUM ('active', 'inactive', 'cancelled', 'trial');
+      EXCEPTION
+        WHEN duplicate_object THEN null;
+      END $$;
+    `);
+    
+    logger.info('✅ Created ENUM types');
+
     // Create businesses table
     await client.query(`
       CREATE TABLE IF NOT EXISTS businesses (
@@ -102,6 +137,10 @@ async function migrate() {
         name TEXT NOT NULL,
         scheduled_at TIMESTAMP WITH TIME ZONE,
         status TEXT,
+        target_count INTEGER DEFAULT 0,
+        sent_count INTEGER DEFAULT 0,
+        delivered_count INTEGER DEFAULT 0,
+        failed_count INTEGER DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
@@ -206,6 +245,43 @@ async function migrate() {
     `);
     logger.info('✅ Created whatsapp_accounts table');
 
+    // Create plans table for subscription billing
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS plans (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        conversation_limit INTEGER NOT NULL,
+        price NUMERIC(10, 2) NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+      )
+    `);
+    logger.info('✅ Created plans table');
+
+    // Create subscriptions table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS subscriptions (
+        id SERIAL PRIMARY KEY,
+        business_id INTEGER NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+        plan_id INTEGER NOT NULL REFERENCES plans(id) ON DELETE CASCADE,
+        renew_at TIMESTAMP WITH TIME ZONE,
+        status subscription_status DEFAULT 'trial',
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+      )
+    `);
+    logger.info('✅ Created subscriptions table');
+
+    // Create usage_logs table for tracking API usage
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS usage_logs (
+        id SERIAL PRIMARY KEY,
+        business_id INTEGER NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+        conversation_id TEXT,
+        cost NUMERIC(10, 2),
+        timestamp TIMESTAMP WITH TIME ZONE DEFAULT now()
+      )
+    `);
+    logger.info('✅ Created usage_logs table');
+
     // Create indexes for better performance
     await client.query(`
       CREATE INDEX IF NOT EXISTS idx_contacts_business_id ON contacts(business_id);
@@ -217,6 +293,7 @@ async function migrate() {
       CREATE INDEX IF NOT EXISTS idx_campaigns_business_id ON campaigns(business_id);
       CREATE INDEX IF NOT EXISTS idx_campaigns_status ON campaigns(status);
       CREATE INDEX IF NOT EXISTS idx_automation_rules_business_id ON automation_rules(business_id);
+      CREATE INDEX IF NOT EXISTS idx_automation_rules_trigger ON automation_rules(trigger);
       CREATE INDEX IF NOT EXISTS idx_analytics_events_business_id ON analytics_events(business_id);
       CREATE INDEX IF NOT EXISTS idx_analytics_events_created_at ON analytics_events(created_at);
       CREATE INDEX IF NOT EXISTS idx_campaign_logs_campaign_id ON campaign_logs(campaign_id);
@@ -225,6 +302,9 @@ async function migrate() {
       CREATE INDEX IF NOT EXISTS idx_pipeline_history_contact_id ON pipeline_history(contact_id);
       CREATE INDEX IF NOT EXISTS idx_whatsapp_accounts_business_id ON whatsapp_accounts(business_id);
       CREATE INDEX IF NOT EXISTS idx_whatsapp_accounts_phone_number ON whatsapp_accounts(phone_number);
+      CREATE INDEX IF NOT EXISTS idx_subscriptions_business_id ON subscriptions(business_id);
+      CREATE INDEX IF NOT EXISTS idx_usage_logs_business_id ON usage_logs(business_id);
+      CREATE INDEX IF NOT EXISTS idx_usage_logs_timestamp ON usage_logs(timestamp);
     `);
     logger.info('✅ Created indexes');
 
@@ -239,6 +319,86 @@ async function migrate() {
       $$ language 'plpgsql';
     `);
     logger.info('✅ Created trigger function');
+
+    // Create automation trigger for new contacts
+    await client.query(`
+      CREATE OR REPLACE FUNCTION notify_contact_created()
+      RETURNS TRIGGER AS $$
+      BEGIN
+        PERFORM pg_notify('contact_created', json_build_object(
+          'contact_id', NEW.id,
+          'business_id', NEW.business_id,
+          'phone', NEW.phone,
+          'name', NEW.name,
+          'stage', NEW.stage
+        )::text);
+        RETURN NEW;
+      END;
+      $$ LANGUAGE plpgsql;
+    `);
+
+    await client.query(`
+      DROP TRIGGER IF EXISTS trigger_contact_created ON contacts;
+      CREATE TRIGGER trigger_contact_created
+      AFTER INSERT ON contacts
+      FOR EACH ROW
+      EXECUTE FUNCTION notify_contact_created();
+    `);
+    logger.info('✅ Created contact creation trigger');
+
+    // Create automation trigger for stage changes
+    await client.query(`
+      CREATE OR REPLACE FUNCTION notify_stage_changed()
+      RETURNS TRIGGER AS $$
+      BEGIN
+        IF OLD.stage IS DISTINCT FROM NEW.stage THEN
+          PERFORM pg_notify('stage_changed', json_build_object(
+            'contact_id', NEW.id,
+            'business_id', NEW.business_id,
+            'from_stage', OLD.stage,
+            'to_stage', NEW.stage
+          )::text);
+        END IF;
+        RETURN NEW;
+      END;
+      $$ LANGUAGE plpgsql;
+    `);
+
+    await client.query(`
+      DROP TRIGGER IF EXISTS trigger_stage_changed ON contacts;
+      CREATE TRIGGER trigger_stage_changed
+      AFTER UPDATE ON contacts
+      FOR EACH ROW
+      EXECUTE FUNCTION notify_stage_changed();
+    `);
+    logger.info('✅ Created stage change trigger');
+
+    // Create automation trigger for incoming messages
+    await client.query(`
+      CREATE OR REPLACE FUNCTION notify_message_received()
+      RETURNS TRIGGER AS $$
+      BEGIN
+        IF NEW.direction = 'inbound' THEN
+          PERFORM pg_notify('message_received', json_build_object(
+            'message_id', NEW.id,
+            'business_id', NEW.business_id,
+            'contact_id', NEW.contact_id,
+            'content', NEW.content
+          )::text);
+        END IF;
+        RETURN NEW;
+      END;
+      $$ LANGUAGE plpgsql;
+    `);
+
+    await client.query(`
+      DROP TRIGGER IF EXISTS trigger_message_received ON messages;
+      CREATE TRIGGER trigger_message_received
+      AFTER INSERT ON messages
+      FOR EACH ROW
+      EXECUTE FUNCTION notify_message_received();
+    `);
+    logger.info('✅ Created message received trigger');
 
     // Note: Updated_at triggers removed as schema doesn't include updated_at columns
 

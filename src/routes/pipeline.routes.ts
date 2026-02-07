@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { pool } from '../config/database.js';
 import { AppError, asyncHandler } from '../middleware/errorHandler.js';
 import { authenticate } from '../middleware/auth.js';
+import { triggerAutomation } from '../services/automation.executor.js';
 
 const router = Router();
 router.use(authenticate);
@@ -83,6 +84,17 @@ router.post('/move', asyncHandler(async (req: Request, res: Response) => {
     );
 
     await client.query('COMMIT');
+
+    // Trigger automation for stage change (outside transaction)
+    await triggerAutomation('stage_changed', {
+      contact_id: contactId,
+      business_id: businessId,
+      from_stage: fromStage,
+      to_stage: stage
+    }).catch(error => {
+      // Don't fail the request if automation fails
+      console.error('Error triggering stage_changed automation:', error);
+    });
 
     res.json({ message: 'Contact moved successfully', fromStage, toStage: stage });
   } catch (error) {
