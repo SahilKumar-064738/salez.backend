@@ -3,8 +3,8 @@ import { logger } from '../utils/logger.js';
 import bcrypt from 'bcryptjs';
 
 /**
- * Database Seed Script
- * Populates the database with sample data for development/testing
+ * Database Seeding Script
+ * Populates database with initial data for development/testing
  */
 
 async function seed() {
@@ -17,154 +17,150 @@ async function seed() {
 
     // Create sample business
     const businessResult = await client.query(`
-      INSERT INTO businesses (business_name, email, phone, status)
-      VALUES 
-        ('Demo Company', 'demo@example.com', '+1234567890', 'active'),
-        ('Test Business', 'test@example.com', '+0987654321', 'active')
+      INSERT INTO businesses (business_name, email, status)
+      VALUES ('Demo Business', 'demo@example.com', 'active')
       ON CONFLICT (email) DO NOTHING
-      RETURNING id, business_name
+      RETURNING id
     `);
     
+    let businessId: number;
     if (businessResult.rows.length > 0) {
-      logger.info(`✅ Created ${businessResult.rows.length} businesses`);
-      
-      const business1Id = businessResult.rows[0].id;
-      const business2Id = businessResult.rows[1]?.id || business1Id;
-
-      // Create sample users
-      const hashedPassword = await bcrypt.hash('password123', 10);
-      
-      const userResult = await client.query(`
-        INSERT INTO users (business_id, name, email, password_hash, role)
-        VALUES 
-          ($1, 'Demo Owner', 'demo@example.com', $2, 'owner'),
-          ($1, 'Demo User', 'user@demo.com', $2, 'user'),
-          ($3, 'Test Owner', 'test@example.com', $2, 'owner')
-        ON CONFLICT (email) DO NOTHING
-        RETURNING id, name
-      `, [business1Id, hashedPassword, business2Id]);
-      
-      if (userResult.rows.length > 0) {
-        logger.info(`✅ Created ${userResult.rows.length} users`);
-      }
-
-      // Create sample contacts
-      const contactResult = await client.query(`
-        INSERT INTO contacts (business_id, phone, name, stage, notes, last_active)
-        VALUES 
-          ($1, '+1234567001', 'John Doe', 'New', 'Interested in product demo', NOW() - INTERVAL '1 hour'),
-          ($1, '+1234567002', 'Jane Smith', 'Qualified', 'Ready to purchase', NOW() - INTERVAL '2 hours'),
-          ($1, '+1234567003', 'Bob Johnson', 'Contacted', 'Follow up next week', NOW() - INTERVAL '1 day'),
-          ($1, '+1234567004', 'Alice Brown', 'Converted', 'Happy customer', NOW() - INTERVAL '3 days'),
-          ($1, '+1234567005', 'Charlie Wilson', 'New', 'Requested information', NOW() - INTERVAL '5 hours'),
-          ($1, '+1234567006', 'Diana Martinez', 'Qualified', 'Budget approved', NOW() - INTERVAL '12 hours'),
-          ($1, '+1234567007', 'Edward Davis', 'Lost', 'Went with competitor', NOW() - INTERVAL '7 days'),
-          ($1, '+1234567008', 'Fiona Garcia', 'New', 'First contact', NOW() - INTERVAL '30 minutes')
-        ON CONFLICT (business_id, phone) DO NOTHING
-        RETURNING id
-      `, [business1Id]);
-      
-      if (contactResult.rows.length > 0) {
-        logger.info(`✅ Created ${contactResult.rows.length} contacts`);
-        
-        const contactIds = contactResult.rows.map(row => row.id);
-
-        // Create sample messages
-        const messageValues: string[] = [];
-        const messageParams: any[] = [];
-        let paramIndex = 1;
-
-        contactIds.forEach((contactId, index) => {
-          // Outbound message
-          messageValues.push(`($${paramIndex}, $${paramIndex + 1}, 'outbound', 'Hello! How can I help you today?', 'text', 'delivered', NOW() - INTERVAL '${index + 1} hours')`);
-          messageParams.push(business1Id, contactId);
-          paramIndex += 2;
-
-          // Inbound message
-          if (index < 5) {
-            messageValues.push(`($${paramIndex}, $${paramIndex + 1}, 'inbound', 'I am interested in your services', 'text', 'read', NOW() - INTERVAL '${index} hours')`);
-            messageParams.push(business1Id, contactId);
-            paramIndex += 2;
-          }
-        });
-
-        if (messageValues.length > 0) {
-          await client.query(`
-            INSERT INTO messages (business_id, contact_id, direction, content, message_type, status, sent_at)
-            VALUES ${messageValues.join(', ')}
-          `, messageParams);
-          logger.info(`✅ Created ${messageValues.length} messages`);
-        }
-
-        // Create sample tags
-        await client.query(`
-          INSERT INTO contact_tags (business_id, contact_id, tag)
-          VALUES 
-            ($1, $2, 'VIP'),
-            ($1, $2, 'Hot Lead'),
-            ($1, $3, 'Follow-up'),
-            ($1, $4, 'Satisfied'),
-            ($1, $5, 'New Inquiry')
-          ON CONFLICT (contact_id, tag) DO NOTHING
-        `, [business1Id, contactIds[0], contactIds[1], contactIds[3], contactIds[4]]);
-        logger.info('✅ Created contact tags');
-      }
-
-      // Create sample templates
-      const templateResult = await client.query(`
-        INSERT INTO templates (business_id, name, category, content, variables, status)
-        VALUES 
-          ($1, 'Welcome Message', 'greeting', 'Hello {{name}}! Welcome to {{company}}. How can we help you today?', '["name", "company"]'::jsonb, 'active'),
-          ($1, 'Follow Up', 'follow_up', 'Hi {{name}}, following up on our previous conversation. Are you still interested?', '["name"]'::jsonb, 'active'),
-          ($1, 'Thank You', 'gratitude', 'Thank you {{name}} for your business! We appreciate you.', '["name"]'::jsonb, 'active'),
-          ($1, 'Appointment Reminder', 'reminder', 'Hi {{name}}, this is a reminder for your appointment on {{date}} at {{time}}.', '["name", "date", "time"]'::jsonb, 'active')
-        RETURNING id
-      `, [business1Id]);
-      logger.info(`✅ Created ${templateResult.rows.length} templates`);
-
-      const templateId = templateResult.rows[0].id;
-
-      // Create sample campaign
-      const campaignResult = await client.query(`
-        INSERT INTO campaigns (business_id, name, description, template_id, status, target_count, sent_count, delivered_count)
-        VALUES 
-          ($1, 'Welcome Campaign', 'Send welcome messages to new contacts', $2, 'active', 100, 75, 70),
-          ($1, 'Summer Promotion', 'Promote summer deals', $2, 'completed', 50, 50, 48)
-        RETURNING id
-      `, [business1Id, templateId]);
-      logger.info(`✅ Created ${campaignResult.rows.length} campaigns`);
-
-      // Create sample automation rule
-      await client.query(`
-        INSERT INTO automation_rules (business_id, name, description, trigger_type, trigger_config, action_type, action_config, is_active)
-        VALUES 
-          ($1, 'Auto Welcome', 'Send welcome message to new contacts', 'contact_created', '{}'::jsonb, 'send_message', '{"template_id": $2}'::jsonb, true),
-          ($1, 'Follow Up Reminder', 'Send follow up after 3 days', 'time_delay', '{"delay_hours": 72}'::jsonb, 'send_message', '{"template_id": $2}'::jsonb, true)
-      `, [business1Id, templateId]);
-      logger.info('✅ Created automation rules');
-
-      // Create sample analytics events
-      await client.query(`
-        INSERT INTO analytics_events (business_id, event_type, event_data)
-        VALUES 
-          ($1, 'message_sent', '{"count": 150, "date": "2024-01-01"}'::jsonb),
-          ($1, 'message_delivered', '{"count": 145, "date": "2024-01-01"}'::jsonb),
-          ($1, 'message_read', '{"count": 120, "date": "2024-01-01"}'::jsonb),
-          ($1, 'contact_created', '{"count": 25, "date": "2024-01-01"}'::jsonb),
-          ($1, 'campaign_completed', '{"campaign_id": 1, "date": "2024-01-01"}'::jsonb)
-      `, [business1Id]);
-      logger.info('✅ Created analytics events');
-
+      businessId = businessResult.rows[0].id;
+      logger.info('✅ Created demo business');
     } else {
-      logger.info('ℹ️  Businesses already exist, skipping seed');
+      const existing = await client.query(
+        "SELECT id FROM businesses WHERE email = 'demo@example.com'"
+      );
+      businessId = existing.rows[0].id;
+      logger.info('ℹ️ Demo business already exists');
     }
+
+    // Create sample user
+    const hashedPassword = await bcrypt.hash('password123', 10);
+    await client.query(`
+      INSERT INTO users (business_id, name, email, password_hash, role)
+      VALUES ($1, 'Demo User', 'demo@example.com', $2, 'owner')
+      ON CONFLICT DO NOTHING
+    `, [businessId, hashedPassword]);
+    logger.info('✅ Created demo user (email: demo@example.com, password: password123)');
+
+    // Create subscription plans
+    const plans = [
+      { name: 'Free', limit: 100, price: 0 },
+      { name: 'Starter', limit: 1000, price: 29.99 },
+      { name: 'Professional', limit: 5000, price: 99.99 },
+      { name: 'Enterprise', limit: 20000, price: 299.99 }
+    ];
+
+    for (const plan of plans) {
+      await client.query(`
+        INSERT INTO plans (name, conversation_limit, price)
+        VALUES ($1, $2, $3)
+        ON CONFLICT DO NOTHING
+      `, [plan.name, plan.limit, plan.price]);
+    }
+    logger.info('✅ Created subscription plans');
+
+    // Get free plan ID
+    const freePlanResult = await client.query(
+      "SELECT id FROM plans WHERE name = 'Free' LIMIT 1"
+    );
+    const freePlanId = freePlanResult.rows[0].id;
+
+    // Create trial subscription for demo business
+    await client.query(`
+      INSERT INTO subscriptions (business_id, plan_id, renews_at, status)
+      VALUES ($1, $2, NOW() + INTERVAL '30 days', 'active')
+      ON CONFLICT DO NOTHING
+    `, [businessId, freePlanId]);
+    logger.info('✅ Created trial subscription');
+
+    // Create WhatsApp account
+    await client.query(`
+      INSERT INTO whatsapp_accounts (business_id, phone_number, status)
+      VALUES ($1, '+1234567890', 'active')
+      ON CONFLICT (phone_number) DO NOTHING
+    `, [businessId]);
+    logger.info('✅ Created WhatsApp account');
+
+    // Create sample contacts
+    const contacts = [
+      { name: 'John Doe', phone: '+1234567891', stage: 'New' },
+      { name: 'Jane Smith', phone: '+1234567892', stage: 'Contacted' },
+      { name: 'Bob Johnson', phone: '+1234567893', stage: 'Qualified' },
+      { name: 'Alice Williams', phone: '+1234567894', stage: 'Proposal' },
+      { name: 'Charlie Brown', phone: '+1234567895', stage: 'Won' }
+    ];
+
+    for (const contact of contacts) {
+      await client.query(`
+        INSERT INTO contacts (business_id, phone, name, stage, created_at, last_active)
+        VALUES ($1, $2, $3, $4, NOW(), NOW())
+        ON CONFLICT DO NOTHING
+      `, [businessId, contact.phone, contact.name, contact.stage]);
+    }
+    logger.info('✅ Created sample contacts');
+
+    // Create sample message template
+    const templateResult = await client.query(`
+      INSERT INTO message_templates (business_id, name, content, status)
+      VALUES ($1, 'Welcome Message', 'Hi {name}! Thanks for reaching out. How can we help you today?', 'approved')
+      RETURNING id
+    `, [businessId]);
+    logger.info('✅ Created sample message template');
+
+    // Create sample automation rule
+    await client.query(`
+      INSERT INTO automation_rules (business_id, trigger, condition, action, delay_minutes)
+      VALUES (
+        $1,
+        'contact_created',
+        '{}',
+        '{"type": "send_message", "message": "Welcome! How can we help you today?"}',
+        0
+      )
+    `, [businessId]);
+    logger.info('✅ Created sample automation rule');
+
+    // Create some sample messages
+    const contactIds = await client.query(
+      'SELECT id FROM contacts WHERE business_id = $1 LIMIT 3',
+      [businessId]
+    );
+
+    for (const contact of contactIds.rows) {
+      // Inbound message
+      await client.query(`
+        INSERT INTO messages (business_id, contact_id, direction, content, status, sent_at)
+        VALUES ($1, $2, 'inbound', 'Hi, I am interested in your services', 'delivered', NOW() - INTERVAL '2 hours')
+      `, [businessId, contact.id]);
+
+      // Outbound message
+      await client.query(`
+        INSERT INTO messages (business_id, contact_id, direction, content, status, sent_at)
+        VALUES ($1, $2, 'outbound', 'Great! I would love to help you. What are you looking for?', 'sent', NOW() - INTERVAL '1 hour')
+      `, [businessId, contact.id]);
+    }
+    logger.info('✅ Created sample messages');
+
+    // Create sample tags
+    const sampleContactId = contactIds.rows[0].id;
+    await client.query(`
+      INSERT INTO contact_tags (business_id, contact_id, tag)
+      VALUES 
+        ($1, $2, 'vip'),
+        ($1, $2, 'interested')
+    `, [businessId, sampleContactId]);
+    logger.info('✅ Created sample tags');
 
     await client.query('COMMIT');
     
     logger.info('🎉 Database seeding completed successfully!');
-    logger.info('📝 Default credentials:');
+    logger.info('');
+    logger.info('📝 Demo Account Credentials:');
     logger.info('   Email: demo@example.com');
     logger.info('   Password: password123');
+    logger.info('');
     
   } catch (error) {
     await client.query('ROLLBACK');
@@ -176,13 +172,13 @@ async function seed() {
   }
 }
 
-// Run seed
+// Run seeding
 seed()
   .then(() => {
-    logger.info('✅ Seed script finished');
+    logger.info('✅ Seeding script finished');
     process.exit(0);
   })
   .catch((error) => {
-    logger.error('❌ Seed script failed:', error);
+    logger.error('❌ Seeding script failed:', error);
     process.exit(1);
   });

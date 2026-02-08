@@ -29,8 +29,8 @@ router.get('/summary', asyncHandler(async (req: Request, res: Response) => {
   const messagesResult = await pool.query(
     `SELECT 
        COUNT(*) as total,
-       COUNT(CASE WHEN direction = 'outbound' THEN 1 END) as sent,
-       COUNT(CASE WHEN direction = 'inbound' THEN 1 END) as received
+       COUNT(CASE WHEN direction = 'out' THEN 1 END) as sent,
+       COUNT(CASE WHEN direction = 'in' THEN 1 END) as received
      FROM messages 
      WHERE business_id = $1`,
     [businessId]
@@ -111,11 +111,11 @@ router.get('/messages', asyncHandler(async (req: Request, res: Response) => {
     params
   );
 
-  // Response rate (inbound messages / outbound messages)
+  // Response rate (in messages / out messages)
   const responseRateResult = await pool.query(
     `SELECT 
-       COUNT(CASE WHEN direction = 'outbound' THEN 1 END) as sent,
-       COUNT(CASE WHEN direction = 'inbound' THEN 1 END) as received
+       COUNT(CASE WHEN direction = 'out' THEN 1 END) as sent,
+       COUNT(CASE WHEN direction = 'in' THEN 1 END) as received
      FROM messages
      WHERE business_id = $1${dateFilter}`,
     params

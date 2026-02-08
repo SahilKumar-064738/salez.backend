@@ -263,8 +263,10 @@ async function migrate() {
         id SERIAL PRIMARY KEY,
         business_id INTEGER NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
         plan_id INTEGER NOT NULL REFERENCES plans(id) ON DELETE CASCADE,
-        renew_at TIMESTAMP WITH TIME ZONE,
-        status subscription_status DEFAULT 'trial',
+        renews_at TIMESTAMP WITH TIME ZONE,
+        status TEXT DEFAULT 'active',
+        stripe_customer_id TEXT,
+        stripe_subscription_id TEXT,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
       )
     `);

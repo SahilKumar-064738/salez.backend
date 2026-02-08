@@ -2,6 +2,7 @@ import { pool } from '../config/database.js';
 import { logger } from '../utils/logger.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { triggerAutomation } from './automation.executor.js';
+import { followUpService } from './followup.service.js';
 
 interface WhatsAppMessage {
   to: string;
@@ -326,6 +327,11 @@ class WhatsAppService {
         direction: 'inbound'
       }).catch(error => {
         logger.error('Error triggering message_received automation:', error);
+      });
+
+      // Analyze message for deal status and follow-up needs
+      await followUpService.analyzeMessageForDealStatus(newMessageId).catch(error => {
+        logger.error('Error analyzing message for deal status:', error);
       });
 
       logger.info(`Processed incoming WhatsApp message from ${phoneNumber}`);

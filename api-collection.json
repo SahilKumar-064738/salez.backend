@@ -1,0 +1,478 @@
+{
+  "info": {
+    "name": "WhatsApp CRM API",
+    "description": "Complete API collection for WhatsApp CRM Backend",
+    "version": "1.0.0"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{jwt_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variables": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:5000"
+    },
+    {
+      "key": "jwt_token",
+      "value": ""
+    },
+    {
+      "key": "business_id",
+      "value": ""
+    }
+  ],
+  "requests": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/health"
+      }
+    },
+    {
+      "name": "Register",
+      "folder": "Authentication",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/api/auth/register",
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"businessName\": \"My Business\",\n  \"email\": \"user@example.com\",\n  \"password\": \"password123\",\n  \"name\": \"John Doe\"\n}"
+        }
+      }
+    },
+    {
+      "name": "Login",
+      "folder": "Authentication",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/api/auth/login",
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"demo@example.com\",\n  \"password\": \"password123\"\n}"
+        }
+      }
+    },
+    {
+      "name": "Get All Plans",
+      "folder": "Billing",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/api/billing/plans"
+      }
+    },
+    {
+      "name": "Get Active Subscription",
+      "folder": "Billing",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/api/billing/subscription",
+        "auth": {
+          "type": "bearer",
+          "bearer": [{"key": "token", "value": "{{jwt_token}}"}]
+        }
+      }
+    },
+    {
+      "name": "Create Subscription",
+      "folder": "Billing",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/api/billing/subscription",
+        "auth": {
+          "type": "bearer",
+          "bearer": [{"key": "token", "value": "{{jwt_token}}"}]
+        },
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"planId\": 1\n}"
+        }
+      }
+    },
+    {
+      "name": "Get Usage Stats",
+      "folder": "Billing",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/api/billing/usage?period=month",
+        "auth": {
+          "type": "bearer",
+          "bearer": [{"key": "token", "value": "{{jwt_token}}"}]
+        }
+      }
+    },
+    {
+      "name": "Check Usage Limits",
+      "folder": "Billing",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/api/billing/check-limits",
+        "auth": {
+          "type": "bearer",
+          "bearer": [{"key": "token", "value": "{{jwt_token}}"}]
+        }
+      }
+    },
+    {
+      "name": "Get Follow-Up Stats",
+      "folder": "Follow-Up Automation",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/api/followup/stats",
+        "auth": {
+          "type": "bearer",
+          "bearer": [{"key": "token", "value": "{{jwt_token}}"}]
+        }
+      }
+    },
+    {
+      "name": "Get Hot Leads",
+      "folder": "Follow-Up Automation",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/api/followup/hot-leads",
+        "auth": {
+          "type": "bearer",
+          "bearer": [{"key": "token", "value": "{{jwt_token}}"}]
+        }
+      }
+    },
+    {
+      "name": "Create Custom Follow-Up Rule",
+      "folder": "Follow-Up Automation",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/api/followup/custom-rule",
+        "auth": {
+          "type": "bearer",
+          "bearer": [{"key": "token", "value": "{{jwt_token}}"}]
+        },
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"stage\": \"Qualified\",\n  \"hoursAfterLastMessage\": 48,\n  \"messageTemplate\": \"Hi {name}! Just checking in on your interest...\",\n  \"maxFollowUps\": 3\n}"
+        }
+      }
+    },
+    {
+      "name": "Analyze Message Sentiment",
+      "folder": "Follow-Up Automation",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/api/followup/sentiment/1",
+        "auth": {
+          "type": "bearer",
+          "bearer": [{"key": "token", "value": "{{jwt_token}}"}]
+        }
+      }
+    },
+    {
+      "name": "Process Follow-Ups Manually",
+      "folder": "Follow-Up Automation",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/api/followup/process",
+        "auth": {
+          "type": "bearer",
+          "bearer": [{"key": "token", "value": "{{jwt_token}}"}]
+        }
+      }
+    },
+    {
+      "name": "Get All Contacts",
+      "folder": "Contacts",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/api/contacts?page=1&limit=20",
+        "auth": {
+          "type": "bearer",
+          "bearer": [{"key": "token", "value": "{{jwt_token}}"}]
+        }
+      }
+    },
+    {
+      "name": "Create Contact",
+      "folder": "Contacts",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/api/contacts",
+        "auth": {
+          "type": "bearer",
+          "bearer": [{"key": "token", "value": "{{jwt_token}}"}]
+        },
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"phone\": \"+1234567890\",\n  \"name\": \"New Contact\",\n  \"stage\": \"New\"\n}"
+        }
+      }
+    },
+    {
+      "name": "Get Contact by ID",
+      "folder": "Contacts",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/api/contacts/1",
+        "auth": {
+          "type": "bearer",
+          "bearer": [{"key": "token", "value": "{{jwt_token}}"}]
+        }
+      }
+    },
+    {
+      "name": "Update Contact Stage",
+      "folder": "Contacts",
+      "request": {
+        "method": "PATCH",
+        "url": "{{base_url}}/api/contacts/1/stage",
+        "auth": {
+          "type": "bearer",
+          "bearer": [{"key": "token", "value": "{{jwt_token}}"}]
+        },
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"stage\": \"Qualified\"\n}"
+        }
+      }
+    },
+    {
+      "name": "Get All Messages",
+      "folder": "Messages",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/api/messages?contactId=1",
+        "auth": {
+          "type": "bearer",
+          "bearer": [{"key": "token", "value": "{{jwt_token}}"}]
+        }
+      }
+    },
+    {
+      "name": "Send Message",
+      "folder": "Messages",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/api/messages",
+        "auth": {
+          "type": "bearer",
+          "bearer": [{"key": "token", "value": "{{jwt_token}}"}]
+        },
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"contactId\": 1,\n  \"content\": \"Hello! How can I help you today?\"\n}"
+        }
+      }
+    },
+    {
+      "name": "Get All Campaigns",
+      "folder": "Campaigns",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/api/campaigns",
+        "auth": {
+          "type": "bearer",
+          "bearer": [{"key": "token", "value": "{{jwt_token}}"}]
+        }
+      }
+    },
+    {
+      "name": "Create Campaign",
+      "folder": "Campaigns",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/api/campaigns",
+        "auth": {
+          "type": "bearer",
+          "bearer": [{"key": "token", "value": "{{jwt_token}}"}]
+        },
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Spring Sale 2025\",\n  \"templateId\": 1,\n  \"scheduledAt\": \"2025-03-01T10:00:00Z\",\n  \"contactIds\": [1, 2, 3]\n}"
+        }
+      }
+    },
+    {
+      "name": "Get Campaign Stats",
+      "folder": "Campaigns",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/api/campaigns/1/stats",
+        "auth": {
+          "type": "bearer",
+          "bearer": [{"key": "token", "value": "{{jwt_token}}"}]
+        }
+      }
+    },
+    {
+      "name": "Get All Templates",
+      "folder": "Templates",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/api/templates",
+        "auth": {
+          "type": "bearer",
+          "bearer": [{"key": "token", "value": "{{jwt_token}}"}]
+        }
+      }
+    },
+    {
+      "name": "Create Template",
+      "folder": "Templates",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/api/templates",
+        "auth": {
+          "type": "bearer",
+          "bearer": [{"key": "token", "value": "{{jwt_token}}"}]
+        },
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Follow Up Template\",\n  \"content\": \"Hi {name}! Just following up on our conversation...\"\n}"
+        }
+      }
+    },
+    {
+      "name": "Get All Automation Rules",
+      "folder": "Automation",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/api/automation",
+        "auth": {
+          "type": "bearer",
+          "bearer": [{"key": "token", "value": "{{jwt_token}}"}]
+        }
+      }
+    },
+    {
+      "name": "Create Automation Rule",
+      "folder": "Automation",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/api/automation",
+        "auth": {
+          "type": "bearer",
+          "bearer": [{"key": "token", "value": "{{jwt_token}}"}]
+        },
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"trigger\": \"contact_created\",\n  \"condition\": {},\n  \"action\": {\n    \"type\": \"send_message\",\n    \"message\": \"Welcome! Thanks for reaching out.\"\n  },\n  \"delayMinutes\": 0\n}"
+        }
+      }
+    },
+    {
+      "name": "Get Analytics Overview",
+      "folder": "Analytics",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/api/analytics/overview",
+        "auth": {
+          "type": "bearer",
+          "bearer": [{"key": "token", "value": "{{jwt_token}}"}]
+        }
+      }
+    },
+    {
+      "name": "Get Pipeline Overview",
+      "folder": "Pipeline",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/api/pipeline/overview",
+        "auth": {
+          "type": "bearer",
+          "bearer": [{"key": "token", "value": "{{jwt_token}}"}]
+        }
+      }
+    },
+    {
+      "name": "WhatsApp Webhook (Verify)",
+      "folder": "WhatsApp",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/api/whatsapp/webhook?hub.mode=subscribe&hub.verify_token=your_verify_token&hub.challenge=test_challenge"
+      }
+    },
+    {
+      "name": "WhatsApp Webhook (Receive Message)",
+      "folder": "WhatsApp",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/api/whatsapp/webhook",
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"object\": \"whatsapp_business_account\",\n  \"entry\": [\n    {\n      \"id\": \"BUSINESS_ACCOUNT_ID\",\n      \"changes\": [\n        {\n          \"value\": {\n            \"messaging_product\": \"whatsapp\",\n            \"metadata\": {\n              \"display_phone_number\": \"1234567890\",\n              \"phone_number_id\": \"PHONE_NUMBER_ID\"\n            },\n            \"contacts\": [\n              {\n                \"profile\": {\n                  \"name\": \"John Doe\"\n                },\n                \"wa_id\": \"1234567890\"\n              }\n            ],\n            \"messages\": [\n              {\n                \"from\": \"1234567890\",\n                \"id\": \"wamid.XXX\",\n                \"timestamp\": \"1234567890\",\n                \"text\": {\n                  \"body\": \"Hello, I'm interested in your services\"\n                },\n                \"type\": \"text\"\n              }\n            ]\n          },\n          \"field\": \"messages\"\n        }\n      ]\n    }\n  ]\n}"
+        }
+      }
+    }
+  ]
+}

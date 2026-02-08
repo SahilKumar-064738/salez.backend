@@ -11,10 +11,13 @@ import automationRoutes from './routes/automation.routes.js';
 import analyticsRoutes from './routes/analytics.routes.js';
 import pipelineRoutes from './routes/pipeline.routes.js';
 import whatsappRoutes from './routes/whatsapp.routes.js';
+import billingRoutes from './routes/billing.routes.js';
+import followupRoutes from './routes/followup.routes.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { logger } from './utils/logger.js';
 import { apiLimiter, authLimiter, webhookLimiter } from './middleware/rateLimiter.js';
 import { startCampaignScheduler } from './services/campaign.executor.js';
+import { followUpService } from './services/followup.service.js';
 
 dotenv.config();
 
@@ -88,6 +91,8 @@ app.use('/api/automation', automationRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/pipeline', pipelineRoutes);
 app.use('/api/whatsapp', whatsappRoutes); // Webhook has its own limiter in the route file
+app.use('/api/billing', billingRoutes);
+app.use('/api/followup', followupRoutes);
 
 // 404 handler
 app.use((req, res) => {
@@ -104,6 +109,9 @@ app.listen(PORT, () => {
   
   // Start campaign scheduler (checks every 5 minutes)
   startCampaignScheduler(5);
+  
+  // Start follow-up automation scheduler
+  followUpService.startFollowUpScheduler();
 });
 
 // Graceful shutdown
