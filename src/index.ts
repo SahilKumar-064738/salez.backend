@@ -23,8 +23,33 @@ const PORT = process.env.PORT || 5000;
 
 // Middleware
 const corsOrigins = process.env.CORS_ORIGIN
-  ? process.env.CORS_ORIGIN.split(',')
-  : ['http://localhost:3000'];
+  ? process.env.CORS_ORIGIN.split(',').map(o => o.trim())
+  : [
+      'http://localhost:3000',
+      'http://localhost:5173',
+      'https://salezonline.netlify.app',
+    ];
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // allow server-to-server, curl, mobile apps
+      if (!origin) return callback(null, true);
+
+      if (corsOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(new Error(`CORS blocked for origin: ${origin}`));
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  })
+);
+
+// 🔴 THIS IS CRITICAL
+app.options('*', cors());
 
 app.use(cors({
   origin: corsOrigins,
