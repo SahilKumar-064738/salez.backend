@@ -2,7 +2,6 @@ import express from 'express';
 import { authenticate } from '../middleware/auth.js';
 import { billingService } from '../services/billing.service.js';
 import { logger } from '../utils/logger.js';
-import Stripe from 'stripe';
 
 const router = express.Router();
 
@@ -209,21 +208,8 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
       return res.status(500).json({ error: 'Webhook not configured' });
     }
 
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-      apiVersion: '2024-12-18.acacia',
-    });
-
-    let event: Stripe.Event;
-
-    try {
-      event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
-    } catch (err: any) {
-      logger.error('Webhook signature verification failed:', err.message);
-      return res.status(400).json({ error: `Webhook Error: ${err.message}` });
-    }
-
-    // Handle the event
-    await billingService.handleStripeWebhook(event);
+    
+    
 
     res.json({ received: true });
   } catch (error) {

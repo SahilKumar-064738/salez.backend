@@ -1,4 +1,3 @@
-import Stripe from 'stripe';
 import { pool } from '../config/database.js';
 import { logger } from '../utils/logger.js';
 import { AppError } from '../middleware/errorHandler.js';
@@ -34,14 +33,7 @@ interface Invoice {
  * Handles subscriptions, payments, usage tracking, and invoice generation
  */
 class BillingService {
-  private stripe: Stripe;
-
-  constructor() {
-    this.stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-      apiVersion: '2024-12-18.acacia',
-    });
-  }
-
+ 
   /**
    * Create a new subscription
    */
@@ -70,50 +62,15 @@ class BillingService {
       // Create or get Stripe customer
       let customerId = data.stripeCustomerId;
       
-      if (!customerId) {
-        const customer = await this.stripe.customers.create({
-          email: business.email,
-          name: business.business_name,
-          metadata: {
-            businessId: data.businessId.toString()
-          }
-        });
-        customerId = customer.id;
-      }
-
+    
       // Create Stripe subscription
-      const stripeSubscription = await this.stripe.subscriptions.create({
-        customer: customerId,
-        items: [{
-          price_data: {
-            currency: 'usd',
-            product_data: {
-              name: plan.name,
-            },
-            recurring: {
-              interval: 'month',
-            },
-            unit_amount: Math.round(parseFloat(plan.price) * 100), // Convert to cents
-          },
-        }],
-        metadata: {
-          businessId: data.businessId.toString(),
-          planId: data.planId.toString()
-        }
-      });
-
+   
       // Calculate renewal date (30 days from now)
       const renewsAt = new Date();
       renewsAt.setDate(renewsAt.getDate() + 30);
 
       // Save subscription to database
-      const subscriptionResult = await pool.query(
-        `INSERT INTO subscriptions (business_id, plan_id, renews_at, status, stripe_customer_id, stripe_subscription_id)
-         VALUES ($1, $2, $3, 'active', $4, $5)
-         RETURNING *`,
-        [data.businessId, data.planId, renewsAt, customerId, stripeSubscription.id]
-      );
-
+    
       logger.info(`✅ Subscription created for business ${data.businessId}`);
 
       // Send confirmation email
@@ -131,7 +88,6 @@ class BillingService {
         );
       }
 
-      return subscriptionResult.rows[0];
     } catch (error: any) {
       logger.error('Error creating subscription:', error);
       throw error;
@@ -257,10 +213,7 @@ class BillingService {
     const subscription = await this.getActiveSubscription(businessId);
 
     // Cancel Stripe subscription if exists
-    if (subscription.stripe_subscription_id) {
-      await this.stripe.subscriptions.cancel(subscription.stripe_subscription_id);
-    }
-
+    
     // Update database
     await pool.query(
       `UPDATE subscriptions SET status = 'cancelled' 
@@ -425,59 +378,7 @@ class BillingService {
   /**
    * Handle Stripe webhook events
    */
-  async handleStripeWebhook(event: Stripe.Event): Promise<void> {
-    logger.info(`Received Stripe webhook: ${event.type}`);
-
-    switch (event.type) {
-      case 'customer.subscription.updated':
-      case 'customer.subscription.created':
-        await this.handleSubscriptionUpdated(event.data.object as Stripe.Subscription);
-        break;
-      
-      case 'customer.subscription.deleted':
-        await this.handleSubscriptionDeleted(event.data.object as Stripe.Subscription);
-        break;
-      
-      case 'invoice.payment_succeeded':
-        await this.handlePaymentSucceeded(event.data.object as Stripe.Invoice);
-        break;
-      
-      case 'invoice.payment_failed':
-        await this.handlePaymentFailed(event.data.object as Stripe.Invoice);
-        break;
-    }
-  }
-
-  private async handleSubscriptionUpdated(subscription: Stripe.Subscription): Promise<void> {
-    const businessId = subscription.metadata.businessId;
-    
-    if (businessId) {
-      await pool.query(
-        `UPDATE subscriptions 
-         SET status = $1, renews_at = to_timestamp($2)
-         WHERE stripe_subscription_id = $3`,
-        [subscription.status, subscription.current_period_end, subscription.id]
-      );
-    }
-  }
-
-  private async handleSubscriptionDeleted(subscription: Stripe.Subscription): Promise<void> {
-    await pool.query(
-      `UPDATE subscriptions SET status = 'cancelled'
-       WHERE stripe_subscription_id = $1`,
-      [subscription.id]
-    );
-  }
-
-  private async handlePaymentSucceeded(invoice: Stripe.Invoice): Promise<void> {
-    logger.info(`Payment succeeded for invoice ${invoice.id}`);
-    // Additional logic like sending receipt email
-  }
-
-  private async handlePaymentFailed(invoice: Stripe.Invoice): Promise<void> {
-    logger.error(`Payment failed for invoice ${invoice.id}`);
-    // Send payment failed notification
-  }
+  
 }
 
 export const billingService = new BillingService();
