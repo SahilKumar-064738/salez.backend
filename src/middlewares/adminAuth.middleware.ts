@@ -20,7 +20,7 @@ export async function requireSuperAdmin(
   next: NextFunction
 ): Promise<void> {
   const { user } = req as AuthenticatedRequest;
-
+  
   try {
     const { data: { user: authUser }, error } = await serviceRoleClient.auth.admin.getUserById(user.id);
 
@@ -29,7 +29,11 @@ export async function requireSuperAdmin(
     }
 
     const isSuperAdmin = authUser.user_metadata?.is_super_admin === true;
-
+    logger.info({
+  userId: user.id,
+  metadata: authUser.user_metadata,
+  isSuperAdmin
+}, 'SUPER ADMIN DEBUG');
     if (!isSuperAdmin) {
       logger.warn({ userId: user.id }, 'Non-super-admin attempted to access admin route');
       return next(new ForbiddenError('Super-admin access required'));
