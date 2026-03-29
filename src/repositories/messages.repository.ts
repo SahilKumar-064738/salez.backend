@@ -148,9 +148,14 @@ export class MessagesRepository {
 
     for (const row of data ?? []) {
       const r = row as {
-        tenant_id: number; contact_id: number; content: string;
-        direction: string; status: string; is_read: boolean; sent_at: string;
-        contact: { id: number; name: string | null; phone: string; stage: string } | null;
+        tenant_id: number;
+        contact_id: number;
+        content: string;
+        direction: string;
+        status: string;
+        is_read: boolean;
+        sent_at: string;
+        contact: { id: number; name: string | null; phone: string; stage: string }[] | null;
       };
       if (seen.has(r.contact_id)) continue;
       seen.add(r.contact_id);
