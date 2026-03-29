@@ -168,13 +168,13 @@ export class MessagesRepository {
         .eq('contact_id', r.contact_id)
         .eq('direction', 'inbound')
         .eq('is_read', false);
-
+      const contact = r.contact?.[0] ?? null;
       deduplicated.push({
         tenant_id:       r.tenant_id,
         contact_id:      r.contact_id,
-        contact_name:    r.contact?.name ?? null,
-        contact_phone:   r.contact?.phone ?? '',
-        contact_stage:   r.contact?.stage as InboxSummary['contact_stage'],
+        contact_name:    contact?.name ?? null,
+        contact_phone:   contact?.phone ?? null,
+        contact_stage:   contact?.stage as InboxSummary['contact_stage'],
         last_message:    r.content,
         last_direction:  r.direction as InboxSummary['last_direction'],
         last_status:     r.status as InboxSummary['last_status'],

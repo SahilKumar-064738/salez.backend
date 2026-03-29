@@ -84,7 +84,7 @@ export interface InboxSummary {
   tenant_id: number;
   contact_id: number;
   contact_name: string | null;
-  contact_phone: string;
+  contact_phone: string | null ;
   contact_stage: ContactStage;
   last_message: string;
   last_direction: MessageDirection;
