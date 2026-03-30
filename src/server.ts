@@ -54,7 +54,8 @@ app.use(cors({
   'Content-Type',
   'Authorization',
   'X-Requested-With',
-  'Accept'
+  'Accept',
+  'X-API-Key',
 ],
 }));
 app.options('*', cors());
