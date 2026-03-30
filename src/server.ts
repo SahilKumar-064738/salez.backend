@@ -57,6 +57,7 @@ app.use(cors({
   'Accept'
 ],
 }));
+app.options('*', cors());
 
 // ── BODY PARSING ──────────────────────────────────────────────────────────────
 const API = `/api/${env.API_VERSION}`;
