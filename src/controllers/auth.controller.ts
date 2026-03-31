@@ -55,12 +55,27 @@ export class AuthController {
           .insert({ tenant_id: tenant.id });
 
         if (settingsErr) throw settingsErr;
-        console.log("REGISTER SUCCESS CALLED");
+
+        // ✅ LOGIN USER IMMEDIATELY AFTER REGISTER
+        const { data: sessionData, error: loginErr } = await anonClient.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+        if (loginErr || !sessionData.session) {
+          throw new Error("User created but login failed");
+        }
+
+        console.log("REGISTER + LOGIN SUCCESS");
+
+        // ✅ SEND TOKEN TO FRONTEND
         R.created(res, {
           userId,
           tenantId: tenant.id,
           tenantSlug: tenant.slug,
           email,
+          accessToken: sessionData.session.access_token,
+          refreshToken: sessionData.session.refresh_token,
         }, 'Account created successfully');
       } catch (innerErr) {
         // Rollback: delete auth user if tenant setup failed
