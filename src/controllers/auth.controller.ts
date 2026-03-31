@@ -15,7 +15,7 @@ export class AuthController {
       const { businessName, email, password, displayName } = req.body as {
         businessName: string; email: string; password: string; displayName: string;
       };
-
+      
       // 1. Create auth user
       const { data: authData, error: authErr } = await serviceRoleClient.auth.admin.createUser({
         email,
@@ -55,7 +55,7 @@ export class AuthController {
           .insert({ tenant_id: tenant.id });
 
         if (settingsErr) throw settingsErr;
-
+        console.log("REGISTER SUCCESS CALLED");
         R.created(res, {
           userId,
           tenantId: tenant.id,
@@ -69,7 +69,16 @@ export class AuthController {
         );
         throw innerErr;
       }
-    } catch (err) { next(err); }
+    } catch (err: any) {
+  console.log("ERROR:", err);
+
+  // 👇 Zod specific logging
+  if (err?.errors) {
+    console.log("ZOD ERRORS:", err.errors);
+  }
+
+  next(err);
+}
   }
 
   /**
