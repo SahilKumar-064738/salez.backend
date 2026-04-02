@@ -51,8 +51,11 @@ export class AuthController {
 
         // 4. Seed tenant settings with defaults
         const { error: settingsErr } = await serviceRoleClient
-          .from('tenant_settings')
-          .insert({ tenant_id: tenant.id });
+  .from('tenant_settings')
+  .upsert(
+    { tenant_id: tenant.id },
+    { onConflict: 'tenant_id' }
+  );
 
         if (settingsErr) throw settingsErr;
 
