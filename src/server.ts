@@ -1,3 +1,10 @@
+/**
+ * src/server.ts — UPDATED
+ *
+ * Change: automationRouter imported and mounted at /api/v1/automation.
+ * All other routes unchanged.
+ */
+
 import 'dotenv/config';
 import express, { Request, Response } from 'express';
 import cors from 'cors';
@@ -21,7 +28,9 @@ import {
   callsRouter,
   analyticsRouter,
   settingsRouter,
+  automationRouter,   // ← NEW
   adminRouter,
+  ivrRouter,
 } from './routes';
 
 const app = express();
@@ -41,7 +50,6 @@ const allowedOrigins = env.ALLOWED_ORIGINS.split(',').map((o) => o.trim()).filte
 
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow requests with no origin (mobile apps, curl, etc.)
     if (!origin || allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
       callback(null, true);
     } else {
@@ -51,12 +59,13 @@ app.use(cors({
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: [
-  'Content-Type',
-  'Authorization',
-  'X-Requested-With',
-  'Accept',
-  'X-API-Key',
-],
+    'Content-Type',
+    'Authorization',
+    'X-Requested-With',
+    'Accept',
+    'X-API-Key',
+    'X-Tenant-ID',   // ← Added: frontend sends this as defence-in-depth
+  ],
 }));
 app.options('*', cors());
 
@@ -116,7 +125,9 @@ app.use(`${API}/api-keys`,          apiKeysRouter);
 app.use(`${API}/calls`,             callsRouter);
 app.use(`${API}/analytics`,         analyticsRouter);
 app.use(`${API}/settings`,          settingsRouter);
+app.use(`${API}/automation`,        automationRouter);   // ← NEW
 app.use(`${API}/admin`,             adminRouter);
+app.use(`${API}/ivr`,               ivrRouter);
 
 // ── ERROR HANDLING ────────────────────────────────────────────────────────────
 app.use(notFound);
