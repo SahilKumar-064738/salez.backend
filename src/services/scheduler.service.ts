@@ -54,7 +54,7 @@ export class SchedulerService {
     // Atomically claim pending jobs due now (status = running prevents re-grab)
     const { data: jobs, error } = await serviceRoleClient
       .from('scheduled_jobs')
-      .select('id, tenant_id, job_type, payload')
+      .select('id, tenant_id, job_type, payload, run_at')
       .eq('status', 'pending')
       .lte('run_at', now)
       .limit(BATCH_SIZE);
