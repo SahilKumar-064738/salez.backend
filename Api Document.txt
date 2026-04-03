@@ -1,192 +1,381 @@
 # API Documentation
 
-**Base URL:** `https://your-domain.com/api/v1`  
-**Auth:** `Authorization: Bearer <token>` on all endpoints except `/auth/register`, `/auth/login`, `/auth/refresh`, and `/webhooks/*`.
-
-All responses follow this shape:
-```json
-{ "success": true, "data": { ... }, "message": "optional" }
-{ "success": false, "error": "Human message", "code": "ERROR_CODE", "statusCode": 422 }
-```
+> Base URL: `https://your-domain.com/api/v1`  
+> All requests and responses use JSON.  
+> All authenticated endpoints require `Authorization: Bearer <accessToken>`.
 
 ---
 
-## Auth
+## Table of Contents
+
+- [Authentication](#authentication)
+- [Contacts](#contacts)
+- [Messages](#messages)
+- [Campaigns](#campaigns)
+- [WhatsApp Accounts](#whatsapp-accounts)
+- [API Keys](#api-keys)
+- [Calls](#calls)
+- [Analytics](#analytics)
+- [Plans & Limits](#plans--limits)
+- [Error Reference](#error-reference)
+
+---
+
+## Authentication
 
 ### POST /auth/register
-Register a new tenant + owner user.
+
+Create a new tenant account. Returns JWT tokens immediately (auto-login).
 
 **Request**
 ```json
 {
   "businessName": "Acme Corp",
-  "email": "owner@acme.com",
-  "password": "Str0ngPass!",
-  "displayName": "Alice"
+  "email": "admin@acme.com",
+  "password": "securePass123",
+  "displayName": "John Doe"
 }
 ```
-**Response 201**
+
+**Response — 201**
 ```json
-{ "success": true, "data": { "access_token": "eyJ...", "user": { "id": "uuid", "email": "..." } } }
+{
+  "success": true,
+  "data": {
+    "userId": "uuid",
+    "tenantId": 42,
+    "tenantSlug": "acme-corp",
+    "email": "admin@acme.com",
+    "accessToken": "eyJ...",
+    "refreshToken": "eyJ...",
+    "expiresAt": 1700000000
+  },
+  "message": "Account created successfully"
+}
+```
+
+**Errors**
+
+| Code | Status | Meaning |
+|------|--------|---------|
+| `CONFLICT` | 409 | Email already registered |
+| `VALIDATION_ERROR` | 400 | Missing or invalid fields |
+
+**Axios example**
+```ts
+const res = await axios.post('/auth/register', {
+  businessName: 'Acme Corp',
+  email: 'admin@acme.com',
+  password: 'securePass123',
+  displayName: 'John Doe',
+});
+const { accessToken, refreshToken, tenantId } = res.data.data;
 ```
 
 ---
 
 ### POST /auth/login
+
 **Request**
 ```json
-{ "email": "owner@acme.com", "password": "Str0ngPass!" }
+{
+  "email": "admin@acme.com",
+  "password": "securePass123"
+}
 ```
-**Response 200**
+
+**Response — 200**
 ```json
-{ "success": true, "data": { "access_token": "eyJ...", "user": { ... } } }
+{
+  "success": true,
+  "data": {
+    "accessToken": "eyJ...",
+    "refreshToken": "eyJ...",
+    "expiresAt": 1700000000,
+    "user": {
+      "id": "uuid",
+      "email": "admin@acme.com",
+      "displayName": "John Doe",
+      "tenantId": 42,
+      "role": "owner"
+    }
+  }
+}
+```
+
+**Errors**
+
+| Code | Status | Meaning |
+|------|--------|---------|
+| `INVALID_CREDENTIALS` | 401 | Wrong email or password |
+| `ACCOUNT_DEACTIVATED` | 401 | Account has been disabled |
+
+---
+
+### POST /auth/refresh
+
+Exchange a refresh token for a new access token.
+
+**Request**
+```json
+{ "refreshToken": "eyJ..." }
+```
+
+**Response — 200**
+```json
+{
+  "success": true,
+  "data": {
+    "accessToken": "eyJ...",
+    "refreshToken": "eyJ...",
+    "expiresAt": 1700000000
+  }
+}
 ```
 
 ---
 
 ### GET /auth/me
-Returns the currently authenticated user.
 
-**Response 200**
+Returns the authenticated user's profile and tenant info.
+
+**Headers:** `Authorization: Bearer <token>`
+
+**Response — 200**
 ```json
-{ "success": true, "data": { "id": "uuid", "email": "...", "role": "owner", "tenantId": 1 } }
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "email": "admin@acme.com",
+    "tenantId": 42,
+    "role": "owner",
+    "displayName": "John Doe",
+    "avatarUrl": null,
+    "tenant": {
+      "id": 42,
+      "name": "Acme Corp",
+      "slug": "acme-corp",
+      "status": "active",
+      "plan_id": 1,
+      "plan": { "name": "free", "display_name": "Free", "features": {} }
+    }
+  }
+}
+```
+
+---
+
+### POST /auth/change-password
+
+**Headers:** `Authorization: Bearer <token>`
+
+**Request**
+```json
+{ "password": "newSecurePass456" }
+```
+
+**Response — 200**
+```json
+{ "success": true, "data": null, "message": "Password changed successfully" }
 ```
 
 ---
 
 ### POST /auth/logout
-Invalidates the current session token.
 
-**Response 200** `{ "success": true }`
+Revokes all active sessions for the authenticated user server-side.
 
----
+**Headers:** `Authorization: Bearer <token>`
 
-### POST /auth/change-password
-**Request** `{ "password": "NewPass123!" }`  
-**Response 200** `{ "success": true }`
+**Response — 200**
+```json
+{ "success": true, "data": null, "message": "Logged out successfully" }
+```
 
 ---
 
 ## Contacts
 
+All endpoints require `Authorization: Bearer <token>`.
+
 ### GET /contacts
-List contacts with cursor pagination.
 
-**Query params**
+List contacts with cursor pagination. Supports filtering and search.
 
-| Param    | Type   | Description                              |
-|----------|--------|------------------------------------------|
-| limit    | number | Default 50, max 100                      |
-| cursor   | string | From previous response pagination.nextCursor |
-| stage    | string | `new` \| `contacted` \| `qualified` \| `converted` \| `lost` |
-| search   | string | Searches name and phone (ilike)          |
-| tag      | string | Filter by exact tag                      |
+**Query Parameters**
 
-**Response 200**
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `cursor` | string | — | Opaque pagination cursor from previous response |
+| `limit` | number | 50 | Max 100 |
+| `stage` | string | — | `new` \| `contacted` \| `qualified` \| `converted` \| `lost` |
+| `search` | string | — | Searches name, phone, email |
+| `tag` | string | — | Filter by tag name |
+
+**Response — 200**
 ```json
 {
   "success": true,
   "data": [
     {
-      "id": 1, "phone": "+919876543210", "name": "John",
-      "email": null, "stage": "new", "tags": ["vip"],
-      "created_at": "2026-04-01T10:00:00Z"
+      "id": 1,
+      "phone": "+15551234567",
+      "name": "Jane Smith",
+      "email": "jane@example.com",
+      "stage": "new",
+      "notes": null,
+      "tags": ["vip", "demo"],
+      "created_at": "2024-01-01T00:00:00Z"
     }
   ],
-  "pagination": { "nextCursor": "abc123", "hasMore": true }
+  "pagination": {
+    "nextCursor": "eyJpZCI6MTAwfQ==",
+    "hasMore": true
+  }
 }
 ```
 
 ---
 
 ### GET /contacts/:id
-**Response 200** — single Contact object with tags array.
+
+**Response — 200** — Returns a single contact object (same shape as list item).
 
 **Errors**
-- `404 NOT_FOUND` — contact not found or belongs to another tenant
+
+| Code | Status | Meaning |
+|------|--------|---------|
+| `NOT_FOUND` | 404 | Contact not found or belongs to another tenant |
 
 ---
 
 ### POST /contacts
-Create a contact. Requires `contacts` plan limit not to be exceeded.
+
+**Plan limit:** `max_contacts`
 
 **Request**
 ```json
 {
-  "phone": "+919876543210",
-  "name": "John Doe",
-  "email": "john@example.com",
+  "phone": "+15551234567",
+  "name": "Jane Smith",
+  "email": "jane@example.com",
   "stage": "new",
   "notes": "Met at conference"
 }
 ```
-**Response 201**
+
+**Response — 201**
 ```json
-{ "success": true, "data": { "id": 42, "phone": "...", "tags": [] }, "message": "Contact created" }
+{
+  "success": true,
+  "data": { "id": 1, "phone": "+15551234567", "name": "Jane Smith", ... },
+  "message": "Contact created"
+}
 ```
+
 **Errors**
-- `422 VALIDATION_ERROR` — missing/invalid fields
-- `429 LIMIT_EXCEEDED` — plan contact limit reached
+
+| Code | Status | Meaning |
+|------|--------|---------|
+| `LIMIT_EXCEEDED` | 429 | Plan contact limit reached |
+| `VALIDATION_ERROR` | 400 | Invalid fields |
+
+---
+
+### PATCH /contacts/:id
+
+Partial update. Only send fields you want to change.
+
+**Request**
+```json
+{
+  "stage": "contacted",
+  "notes": "Called on Jan 5"
+}
+```
+
+**Response — 200** — Returns updated contact.
+
+---
+
+### DELETE /contacts/:id
+
+Soft-deletes the contact (sets `deleted_at`).
+
+**Response — 200**
+```json
+{ "success": true, "data": null, "message": "Contact deleted" }
+```
+
+---
+
+### POST /contacts/:id/tags
+
+**Request**
+```json
+{ "tag": "vip" }
+```
+
+**Response — 200**
+```json
+{ "success": true, "data": null, "message": "Tag added" }
+```
+
+---
+
+### DELETE /contacts/:id/tags/:tag
+
+Removes a specific tag from the contact.
+
+**Response — 200**
+```json
+{ "success": true, "data": null, "message": "Tag removed" }
+```
 
 ---
 
 ### POST /contacts/bulk
-Create up to 500 contacts in one request.
+
+Import up to 500 contacts in a single request.
 
 **Request**
 ```json
 {
   "contacts": [
-    { "phone": "+919876543210", "name": "Alice" },
-    { "phone": "+919876543211", "stage": "contacted" }
+    { "phone": "+15551234567", "name": "Jane Smith" },
+    { "phone": "+15559876543", "name": "Bob Jones", "stage": "qualified" }
   ]
 }
 ```
-**Response 201**
+
+**Response — 201**
 ```json
-{ "success": true, "data": [ { "id": 43, ... }, { "id": 44, ... } ], "message": "2 contacts created" }
+{
+  "success": true,
+  "data": [ { "id": 1, ... }, { "id": 2, ... } ],
+  "message": "2 contacts created"
+}
 ```
-**Errors**
-- `422 VALIDATION_ERROR` — array empty, exceeds 500, or a contact is missing `phone`
-- `429 LIMIT_EXCEEDED` — plan contact limit reached
-
----
-
-### PATCH /contacts/:id
-Partial update. Only provided fields are updated.
-
-**Request** *(all optional)*
-```json
-{ "name": "John Smith", "stage": "qualified", "notes": "Ready for demo", "email": null }
-```
-**Response 200** — updated Contact object.
-
----
-
-### DELETE /contacts/:id
-Soft-delete (sets `deleted_at`). Contact is excluded from all future queries.
-
-**Response 200** `{ "success": true, "data": null, "message": "Contact deleted" }`
-
----
-
-### POST /contacts/:id/tags
-**Request** `{ "tag": "vip" }`  
-**Response 200** `{ "success": true, "data": null, "message": "Tag added" }`
-
----
-
-### DELETE /contacts/:id/tags/:tag
-**Response 200** `{ "success": true, "data": null, "message": "Tag removed" }`
 
 ---
 
 ### GET /contacts/pipeline-stats
-Returns contact counts grouped by stage.
 
-**Response 200**
+Returns contact counts grouped by pipeline stage.
+
+**Response — 200**
 ```json
-{ "success": true, "data": { "new": 120, "contacted": 45, "qualified": 20, "converted": 8, "lost": 12 } }
+{
+  "success": true,
+  "data": {
+    "new": 120,
+    "contacted": 45,
+    "qualified": 30,
+    "converted": 15,
+    "lost": 10
+  }
+}
 ```
 
 ---
@@ -194,289 +383,436 @@ Returns contact counts grouped by stage.
 ## Messages
 
 ### POST /messages/send
+
 Send a WhatsApp message to a contact.
 
 **Request**
 ```json
 {
-  "contactId": 42,
-  "whatsappAccountId": 1,
-  "content": "Hello, how can we help?",
-  "mediaUrl": "https://example.com/file.pdf",
-  "mediaType": "application/pdf"
+  "contactId": 1,
+  "whatsappAccountId": 2,
+  "content": "Hello! How can I help you today?",
+  "mediaUrl": "https://example.com/image.jpg",
+  "mediaType": "image/jpeg"
 }
 ```
-**Response 200** — Message object.
+
+**Response — 201**
+```json
+{
+  "success": true,
+  "data": {
+    "id": 100,
+    "status": "sent",
+    "sent_at": "2024-01-01T12:00:00Z"
+  },
+  "message": "Message sent"
+}
+```
 
 ---
 
 ### GET /messages/inbox
-Paginated inbox showing the latest message per conversation.
 
-**Query params** `cursor`, `limit` (default 30), `unreadOnly` (boolean)
+Paginated inbox showing the latest message per contact.
 
-**Response 200** — `InboxSummary[]` with pagination.
+**Query Parameters**
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `cursor` | string | — | Pagination cursor |
+| `limit` | number | 30 | Max 100 |
+| `unreadOnly` | boolean | false | Show only conversations with unread messages |
+
+**Response — 200**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "contact_id": 1,
+      "contact_name": "Jane Smith",
+      "contact_phone": "+15551234567",
+      "last_message": "Sounds good!",
+      "last_direction": "inbound",
+      "last_status": "read",
+      "is_read": true,
+      "last_message_at": "2024-01-01T12:00:00Z",
+      "unread_count": 0
+    }
+  ],
+  "pagination": { "nextCursor": "...", "hasMore": false }
+}
+```
 
 ---
 
 ### GET /messages/conversation/:contactId
-Full message thread with a contact, newest first.
 
-**Query params** `cursor`, `limit` (default 50)
+Full message thread for a contact.
 
-**Response 200** — `Message[]` with pagination.
+**Query Parameters:** `cursor`, `limit` (max 100)
+
+**Response — 200** — Paginated list of message objects in reverse chronological order.
 
 ---
 
 ### PUT /messages/conversation/:contactId/read
+
 Mark all messages in a conversation as read.
 
-**Response 200** `{ "success": true }`
+**Response — 200**
+```json
+{ "success": true, "data": null, "message": "Marked as read" }
+```
 
 ---
 
 ## Campaigns
 
-### GET /campaigns
-List all campaigns for the tenant.
+### GET /campaigns/templates
 
-**Response 200** — `Campaign[]` with pagination.
+List message templates.
 
----
+**Query:** `?status=approved`
 
-### GET /campaigns/:id
-**Response 200** — single Campaign object.
+**Response — 200** — Array of template objects.
 
 ---
 
-### POST /campaigns
-Create a campaign. Respects `max_campaigns` and `max_campaign_recipients` plan limits.
+### POST /campaigns/templates
+
+**Plan limit:** `max_message_templates`
 
 **Request**
 ```json
 {
-  "name": "Q2 Promo",
-  "templateId": 5,
-  "whatsappAccountId": 1,
-  "scheduledAt": "2026-05-01T09:00:00+05:30",
-  "contactIds": [1, 2, 3],
-  "filters": { "stage": "qualified", "tags": ["vip"] }
+  "name": "welcome_message",
+  "content": "Hi {{name}}, welcome to {{company}}!",
+  "variables": ["name", "company"],
+  "category": "marketing"
 }
 ```
-`contactIds` and `filters` are optional — provide one or neither (sends to all contacts).
 
-**Response 201** — Campaign object with `status: "draft"`.
+---
 
-**Errors**
-- `429 LIMIT_EXCEEDED` — campaign or recipient limit reached
+### POST /campaigns
+
+Create a campaign.
+
+**Plan limit:** `max_campaigns`, `max_campaign_recipients`
+
+**Request**
+```json
+{
+  "name": "January Promotion",
+  "templateId": 5,
+  "whatsappAccountId": 2,
+  "contactIds": [1, 2, 3, 4, 5],
+  "scheduledAt": "2024-01-15T09:00:00Z"
+}
+```
+
+**Response — 201**
+```json
+{
+  "success": true,
+  "data": {
+    "id": 10,
+    "name": "January Promotion",
+    "status": "draft",
+    "total_recipients": 5
+  },
+  "message": "Campaign created"
+}
+```
 
 ---
 
 ### POST /campaigns/:id/send
-Immediately start sending the campaign.
 
-**Response 200** `{ "success": true, "message": "Campaign queued for sending" }`
+Trigger immediate dispatch of a draft or scheduled campaign.
+
+**Response — 200**
+```json
+{ "success": true, "data": null, "message": "Campaign queued for sending" }
+```
 
 ---
 
 ### POST /campaigns/:id/cancel
+
 Cancel a running or scheduled campaign.
-
-**Response 200** `{ "success": true }`
-
----
-
-### GET /campaigns/:id/recipients
-**Response 200** — `CampaignRecipient[]` with pagination.
-
----
-
-## Templates
-
-### GET /campaigns/templates
-**Response 200** — `MessageTemplate[]`
-
-### POST /campaigns/templates
-**Request** `{ "name": "...", "content": "Hi {{name}}", "variables": ["name"], "category": "utility" }`  
-**Response 201** — MessageTemplate object.
-
-### PATCH /campaigns/templates/:id
-Partial update. **Response 200** — updated MessageTemplate.
-
-### DELETE /campaigns/templates/:id
-**Response 200** `{ "success": true }`
 
 ---
 
 ## WhatsApp Accounts
 
-### GET /whatsapp-accounts
-**Response 200** — `WhatsAppAccount[]` (api_token is never returned).
+### GET /whatsapp
 
-### POST /whatsapp-accounts
+List connected WhatsApp accounts.
+
+### POST /whatsapp
+
+Connect a new WhatsApp account.
+
 **Request**
 ```json
 {
-  "phoneNumber": "+911234567890",
-  "displayName": "Support",
-  "apiToken": "EAAx...",
-  "provider": "meta",
-  "dailyMessageLimit": 5000
+  "phoneNumber": "+15551234567",
+  "displayName": "Support Line",
+  "apiToken": "your-meta-api-token",
+  "provider": "meta"
 }
 ```
-**Response 201** — WhatsAppAccount object.
 
-**Errors** — `429 LIMIT_EXCEEDED` if plan's `max_whatsapp_accounts` is reached.
+**Plan limit:** `max_whatsapp_accounts`
 
-### PATCH /whatsapp-accounts/:id
-**Response 200** — updated WhatsAppAccount.
+### PATCH /whatsapp/:id
 
-### DELETE /whatsapp-accounts/:id
-Disconnects/removes the account.
+Update account display name or token.
+
+### DELETE /whatsapp/:id
+
+Disconnect (deactivate) a WhatsApp account.
 
 ---
 
 ## API Keys
 
 ### GET /api-keys
-**Response 200** — `ApiKey[]` (key_hash never returned).
+
+List active API keys (hashes never returned).
 
 ### POST /api-keys
-**Request** `{ "name": "CRM", "scopes": ["contacts:read"], "expiresAt": "2027-01-01T00:00:00Z" }`
 
-**Response 201**
+**Plan limit:** `max_api_keys`
+
+**Request**
 ```json
-{ "success": true, "data": { "id": 3, "key": "sk_live_xxxx..." } }
+{
+  "name": "Production Key",
+  "scopes": ["contacts:read", "messages:write"],
+  "expiresAt": "2025-01-01T00:00:00Z"
+}
 ```
-⚠️ The `key` is shown **once**. Save it immediately.
 
-**Errors** — `429 LIMIT_EXCEEDED` if plan's `max_api_keys` is reached.
+**Response — 201**
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "name": "Production Key",
+    "key": "sk_live_xxxxxxxxxxxxxxxxxxxx",
+    "keyPrefix": "sk_live_xxxx"
+  },
+  "message": "API key created. Store the key securely — it won't be shown again."
+}
+```
 
 ### DELETE /api-keys/:id
-Revokes the key. **Response 200** `{ "success": true }`
+
+Revoke an API key immediately.
 
 ---
 
 ## Calls
 
 ### GET /calls
-**Query params** `cursor`, `limit`, `status`, `direction`, `from_date`, `to_date`, `contact_id`
 
-**Response 200** — `Call[]` with pagination.
+List calls with pagination.
 
 ### GET /calls/stats
-**Query params** `from_date`, `to_date`, `group_by` (`day`|`week`|`month`)
 
-**Response 200** — aggregated call statistics.
+Aggregate call stats (total, answered, avg duration, cost).
 
-### GET /calls/:id
-**Response 200** — single Call object.
+### POST /calls
 
-### GET /calls/:id/transcripts
-**Response 200** — `CallTranscript[]`
+Log an inbound or outbound call.
 
-### GET /calls/:id/recording
-**Response 200** — `CallRecording` object with `recording_url`.
+**Request**
+```json
+{
+  "direction": "outbound",
+  "fromNumber": "+15551234567",
+  "toNumber": "+15559876543",
+  "contactId": 1
+}
+```
+
+### PATCH /calls/:id
+
+Update call status (e.g., mark as `completed`).
+
+### POST /calls/:id/transcripts
+
+Add a transcript segment.
+
+**Request**
+```json
+{
+  "speaker": "agent",
+  "content": "How can I help you?",
+  "segmentStartMs": 0,
+  "segmentEndMs": 2500
+}
+```
+
+### POST /calls/:id/recording
+
+Attach a recording to a call.
+
+**Plan guard:** `enforceFeature('call_recording')`
 
 ---
 
 ## Analytics
 
-All analytics endpoints accept optional `from_date` and `to_date` query params.
+### GET /analytics/overview
 
-| Endpoint                  | Description                     |
-|---------------------------|---------------------------------|
-| GET /analytics/calls      | Call volume, duration, outcomes |
-| GET /analytics/messages   | Message send/delivery stats     |
-| GET /analytics/campaigns  | Campaign performance            |
-| GET /analytics/api-usage  | API request counts by endpoint  |
+High-level SaaS metrics for the tenant.
 
----
+**Query:** `?period=7d` (supports `24h`, `7d`, `30d`, `90d`)
 
-## Settings
-
-### GET /settings
-Returns current tenant settings and limits.
-
-### PATCH /settings
-**Request** *(all optional)*
-```json
-{ "timezone": "Asia/Kolkata", "webhook_url": "https://your-app.com/hook" }
-```
-
-### POST /settings/webhook-secret
-Rotates the webhook HMAC secret.
-
-**Response 200** `{ "success": true, "data": { "secret": "whsec_..." } }`
-
----
-
-## Automation
-
-### GET /automation
-**Response 200** — `AutomationRule[]`
-
-### POST /automation
-**Request**
+**Response — 200**
 ```json
 {
-  "name": "Welcome new contacts",
-  "trigger_type": "contact_created",
-  "conditions": { "stage": "new" },
-  "actions": [{ "type": "send_message", "template_id": 2, "whatsapp_account_id": 1 }]
+  "success": true,
+  "data": {
+    "messages": { "total": 1200, "sent": 900, "received": 300 },
+    "campaigns": { "total": 5, "completed": 3, "running": 1 },
+    "contacts": { "total": 500, "new": 40 },
+    "calls": { "total": 80, "answered": 65, "avgDurationSeconds": 120 }
+  }
 }
 ```
-**Response 201** — AutomationRule object.
 
-**Errors** — `403 FEATURE_NOT_AVAILABLE` if plan doesn't include automation.
+**Plan guard:** `enforceFeature('analytics')`
 
-### PATCH /automation/:id
-Partial update. **Response 200** — updated AutomationRule.
+---
 
-### DELETE /automation/:id
-**Response 200** `{ "success": true }`
+## Plans & Limits
 
-### POST /automation/:id/toggle
-Flips `is_active`. **Response 200** `{ "success": true, "data": { "is_active": true } }`
+### GET /plans
+
+List all available plans (public — no auth required).
+
+**Response — 200**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "name": "free",
+      "display_name": "Free",
+      "price_monthly": 0,
+      "max_contacts": 500,
+      "max_users": 2,
+      "features": { "analytics": false, "automation": false }
+    }
+  ]
+}
+```
 
 ---
 
 ## Error Reference
 
-| Code                    | HTTP | Meaning                                          |
-|-------------------------|------|--------------------------------------------------|
-| `VALIDATION_ERROR`      | 422  | Request body/query failed schema validation      |
-| `UNAUTHORIZED`          | 401  | Missing, invalid, or expired token               |
-| `FORBIDDEN`             | 403  | Authenticated but not allowed                    |
-| `NOT_FOUND`             | 404  | Resource does not exist in this tenant           |
-| `DUPLICATE_ENTRY`       | 409  | Unique constraint violation (e.g. duplicate phone) |
-| `LIMIT_EXCEEDED`        | 429  | Plan resource limit reached                      |
-| `FEATURE_NOT_AVAILABLE` | 403  | Plan does not include requested feature          |
-| `INVALID_PARAM`         | 400  | Path param is malformed (e.g. non-numeric ID)    |
-| `INTERNAL_ERROR`        | 500  | Unexpected server error                          |
+All errors follow this shape:
 
----
-
-## Plan Limits
-
-When a request hits a plan limit the response is:
 ```json
 {
   "success": false,
-  "error": "LIMIT_EXCEEDED",
-  "message": "You have reached your plan limit for contacts (500/500). Upgrade your plan to add more.",
+  "error": "ERROR_CODE",
+  "message": "Human-readable description",
+  "statusCode": 400
+}
+```
+
+### Error Codes
+
+| Code | Status | Description |
+|------|--------|-------------|
+| `VALIDATION_ERROR` | 400 | Request body failed schema validation |
+| `MISSING_FIELD` | 400 | Required field not provided |
+| `INVALID_PARAM` | 400 | URL param is not a valid integer / UUID |
+| `UNAUTHORIZED` | 401 | Missing or invalid Bearer token |
+| `INVALID_CREDENTIALS` | 401 | Wrong email or password |
+| `INVALID_REFRESH_TOKEN` | 401 | Expired or invalid refresh token |
+| `ACCOUNT_DEACTIVATED` | 401 | User account has been disabled |
+| `FORBIDDEN` | 403 | Insufficient role for this action |
+| `FEATURE_NOT_AVAILABLE` | 403 | Feature not included in your plan |
+| `NOT_FOUND` | 404 | Resource does not exist or belongs to another tenant |
+| `CONFLICT` | 409 | Duplicate resource (e.g., email already registered) |
+| `LIMIT_EXCEEDED` | 429 | Plan resource limit reached |
+| `RATE_LIMITED` | 429 | Too many requests — slow down |
+| `PLAN_LIMIT_EXCEEDED` | 429 | Same as LIMIT_EXCEEDED (plan enforcement) |
+| `INTERNAL_ERROR` | 500 | Unexpected server error — retry with backoff |
+
+### Validation errors (400)
+
+Zod validation failures include a `details` array:
+
+```json
+{
+  "success": false,
+  "error": "VALIDATION_ERROR",
+  "message": "Validation failed",
+  "details": [
+    { "field": "email", "message": "Invalid email" },
+    { "field": "password", "message": "String must contain at least 8 character(s)" }
+  ]
+}
+```
+
+---
+
+## Rate Limiting
+
+- Global: 100 requests per minute per IP
+- Auth endpoints (`/auth/login`, `/auth/register`): 10 requests per minute per IP
+- Per-tenant API rate limit: configured per plan (`rate_limit_per_minute`)
+
+Rate limit headers:
+
+```
+X-RateLimit-Limit: 100
+X-RateLimit-Remaining: 95
+X-RateLimit-Reset: 1700000060
+```
+
+When exceeded, you receive:
+
+```json
+{
+  "success": false,
+  "error": "RATE_LIMITED",
+  "message": "Too many requests. Please slow down.",
   "statusCode": 429
 }
 ```
 
-Limits enforced per plan:
+---
 
-| Limit                    | Free | Starter | Pro   | Enterprise |
-|--------------------------|------|---------|-------|------------|
-| max_users                | 2    | 5       | 25    | 500        |
-| max_contacts             | 500  | 5 000   | 50 000| unlimited  |
-| max_whatsapp_accounts    | 1    | 2       | 5     | 20         |
-| max_campaigns            | 3    | 10      | 100   | unlimited  |
-| max_api_keys             | 1    | 3       | 10    | 50         |
-| max_campaign_recipients  | 100  | 500     | 5 000 | 100 000    |
-| max_message_templates    | 3    | 10      | 50    | unlimited  |
+## Pagination
+
+Cursor-based pagination is used for all list endpoints.
+
+**Request:**
+```
+GET /contacts?limit=50&cursor=eyJpZCI6MTAwfQ==
+```
+
+**Response:**
+```json
+{
+  "pagination": {
+    "nextCursor": "eyJpZCI6MTUwfQ==",
+    "hasMore": true
+  }
+}
+```
+
+Pass `nextCursor` as `cursor` in the next request. When `hasMore` is `false`, you've reached the end.

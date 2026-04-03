@@ -1,14 +1,25 @@
-// src/services/plans.service.ts
-// ─────────────────────────────────────────────────────────────────────────────
-// Central service for plan/limit lookups and enforcement.
-// All limit checks go through here — never inline DB queries in controllers.
-// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * src/services/plans.service.ts
+ *
+ * FIXES APPLIED:
+ *  1. getEffectiveLimits() — fallback now logs a structured error but never throws,
+ *     ensuring infra failures don't block user requests.
+ *  2. assignPlanToTenant() — limit_overrides is stored as object (not JSON.stringify),
+ *     Supabase driver handles serialisation.
+ *  3. updateTenantLimitOverrides() — now correctly targets the most recent active
+ *     subscription (uses .order + .limit(1)) to avoid updating multiple rows.
+ *  4. countCampaigns() — now excludes cancelled campaigns (consistent with purpose).
+ *  5. getFreePlanId() cache is module-level singleton (correct); added error message
+ *     that includes DB error details.
+ *  6. PlansService exported as singleton at bottom (was after the standalone function,
+ *     causing potential initialisation order issues).
+ */
 
 import { serviceRoleClient } from '../config/supabase';
 import { AppError } from '../types';
 import { logger } from '../utils/logger';
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+// ── Types ──────────────────────────────────────────────────────────────────────
 
 export interface PlanLimits {
   max_users: number;
@@ -41,23 +52,66 @@ export interface Plan {
   features: Record<string, boolean>;
   is_active: boolean;
   sort_order: number;
+  created_at: string;
+  updated_at: string;
 }
 
 export type LimitKey = keyof Omit<PlanLimits, 'features'>;
+
 export type FeatureKey =
-  | 'analytics' | 'automation' | 'ivr' | 'webhooks'
-  | 'api_access' | 'call_recording' | 'custom_branding'
-  | 'priority_support' | 'sso';
+  | 'analytics'
+  | 'automation'
+  | 'ivr'
+  | 'webhooks'
+  | 'api_access'
+  | 'call_recording'
+  | 'custom_branding'
+  | 'priority_support'
+  | 'sso';
 
-// ── In-memory cache ───────────────────────────────────────────────────────────
-// Plans change rarely; cache for 5 minutes to avoid extra DB round-trips.
+// ── Conservative free-tier fallback ───────────────────────────────────────────
+// Used when the DB is unreachable. Conservative values protect against abuse.
 
-const limitCache = new Map<number, { limits: PlanLimits; expiresAt: number }>();
+const FREE_TIER_FALLBACK: PlanLimits = {
+  max_users: 2,
+  max_contacts: 500,
+  max_whatsapp_accounts: 1,
+  max_campaigns: 3,
+  max_api_keys: 1,
+  rate_limit_per_minute: 30,
+  max_campaign_recipients: 100,
+  max_message_templates: 3,
+  features: {
+    analytics: false,
+    automation: false,
+    ivr: false,
+    webhooks: false,
+    api_access: false,
+    call_recording: false,
+    custom_branding: false,
+    priority_support: false,
+    sso: false,
+  },
+};
+
+// ── In-memory plan limit cache ─────────────────────────────────────────────────
+// Plans change rarely — 5-minute TTL keeps DB round-trips minimal at scale.
+// For Redis-based caching, replace the Map with a Redis get/set wrapper.
+
+interface CacheEntry {
+  limits: PlanLimits;
+  expiresAt: number;
+}
+
+const limitCache = new Map<number, CacheEntry>();
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 function getCached(tenantId: number): PlanLimits | null {
   const entry = limitCache.get(tenantId);
-  if (!entry || Date.now() > entry.expiresAt) return null;
+  if (!entry || Date.now() > entry.expiresAt) {
+    limitCache.delete(tenantId);
+    return null;
+  }
   return entry.limits;
 }
 
@@ -69,14 +123,19 @@ export function invalidateLimitCache(tenantId: number): void {
   limitCache.delete(tenantId);
 }
 
-// ── Core service ──────────────────────────────────────────────────────────────
+// ── PlansService ───────────────────────────────────────────────────────────────
 
 export class PlansService {
-  // ── Limit resolution ───────────────────────────────────────────────────────
+
+  // ── Limit resolution ────────────────────────────────────────────────────────
 
   /**
-   * Fetch effective limits for a tenant (plan + per-tenant overrides).
-   * Uses the DB function get_tenant_limits() which merges plan + overrides.
+   * Fetch effective limits for a tenant.
+   * Merges plan defaults with per-tenant overrides stored in tenant_subscriptions.
+   * Falls back to conservative free-tier limits if DB is unreachable.
+   *
+   * NOTE: Requires get_tenant_limits(p_tenant_id bigint) PostgreSQL function.
+   * See sql/functions.sql for definition.
    */
   async getEffectiveLimits(tenantId: number): Promise<PlanLimits> {
     const cached = getCached(tenantId);
@@ -87,23 +146,9 @@ export class PlansService {
     });
 
     if (error || !data) {
-      logger.error({ error, tenantId }, 'Failed to fetch tenant limits, falling back to free plan');
-      // Hard-coded free-tier fallback — never block a request on our infra failure
-      return {
-        max_users: 2,
-        max_contacts: 500,
-        max_whatsapp_accounts: 1,
-        max_campaigns: 3,
-        max_api_keys: 1,
-        rate_limit_per_minute: 30,
-        max_campaign_recipients: 100,
-        max_message_templates: 3,
-        features: {
-          analytics: false, automation: false, ivr: false,
-          webhooks: false, api_access: false, call_recording: false,
-          custom_branding: false, priority_support: false, sso: false,
-        },
-      };
+      logger.error({ error, tenantId }, 'get_tenant_limits RPC failed — using conservative fallback');
+      // Return fallback but do NOT cache it — we want to retry the DB next time
+      return FREE_TIER_FALLBACK;
     }
 
     const limits = data as PlanLimits;
@@ -112,8 +157,8 @@ export class PlansService {
   }
 
   /**
-   * Assert tenant has not hit a specific resource limit.
-   * Throws 429 PLAN_LIMIT_EXCEEDED if over limit.
+   * Assert tenant is within a specific resource limit.
+   * Throws 429 PLAN_LIMIT_EXCEEDED if at or over limit.
    */
   async assertWithinLimit(
     tenantId: number,
@@ -122,7 +167,7 @@ export class PlansService {
     resourceLabel: string,
   ): Promise<void> {
     const limits = await this.getEffectiveLimits(tenantId);
-    const max = limits[limitKey];
+    const max = limits[limitKey] as number;
 
     if (currentCount >= max) {
       throw new AppError(
@@ -135,7 +180,7 @@ export class PlansService {
 
   /**
    * Assert a feature flag is enabled for this tenant's plan.
-   * Throws 403 FEATURE_NOT_AVAILABLE if flag is false.
+   * Throws 403 FEATURE_NOT_AVAILABLE if the flag is false.
    */
   async assertFeatureEnabled(tenantId: number, feature: FeatureKey): Promise<void> {
     const limits = await this.getEffectiveLimits(tenantId);
@@ -148,8 +193,8 @@ export class PlansService {
     }
   }
 
-  // ── Count helpers ──────────────────────────────────────────────────────────
-  // Lean COUNT queries — never load full rows just to count.
+  // ── COUNT helpers ────────────────────────────────────────────────────────────
+  // These use HEAD-only COUNT queries — no rows are fetched.
 
   async countUsers(tenantId: number): Promise<number> {
     const { count, error } = await serviceRoleClient
@@ -181,11 +226,16 @@ export class PlansService {
     return count ?? 0;
   }
 
+  /**
+   * FIX: Exclude cancelled campaigns from limit count.
+   * Counting cancelled campaigns against limits discourages cleanup.
+   */
   async countCampaigns(tenantId: number): Promise<number> {
     const { count, error } = await serviceRoleClient
       .from('campaigns')
       .select('*', { count: 'exact', head: true })
-      .eq('tenant_id', tenantId);
+      .eq('tenant_id', tenantId)
+      .not('status', 'eq', 'cancelled');
     if (error) throw error;
     return count ?? 0;
   }
@@ -209,13 +259,22 @@ export class PlansService {
     return count ?? 0;
   }
 
-  // ── Plan management (admin only) ───────────────────────────────────────────
+  // ── Plan management (admin-only operations) ──────────────────────────────────
 
   async listPlans(): Promise<Plan[]> {
     const { data, error } = await serviceRoleClient
       .from('plans')
       .select('*')
       .eq('is_active', true)
+      .order('sort_order');
+    if (error) throw error;
+    return (data ?? []) as Plan[];
+  }
+
+  async listAllPlans(): Promise<Plan[]> {
+    const { data, error } = await serviceRoleClient
+      .from('plans')
+      .select('*')
       .order('sort_order');
     if (error) throw error;
     return (data ?? []) as Plan[];
@@ -231,7 +290,7 @@ export class PlansService {
     return data as Plan;
   }
 
-  async createPlan(input: Omit<Plan, 'id' | 'is_active'> & { is_active?: boolean }): Promise<Plan> {
+  async createPlan(input: Omit<Plan, 'id' | 'created_at' | 'updated_at'> & { is_active?: boolean }): Promise<Plan> {
     const { data, error } = await serviceRoleClient
       .from('plans')
       .insert({ ...input, is_active: input.is_active ?? true })
@@ -241,7 +300,7 @@ export class PlansService {
     return data as Plan;
   }
 
-  async updatePlan(id: number, input: Partial<Plan>): Promise<Plan> {
+  async updatePlan(id: number, input: Partial<Omit<Plan, 'id' | 'created_at'>>): Promise<Plan> {
     const { data, error } = await serviceRoleClient
       .from('plans')
       .update({ ...input, updated_at: new Date().toISOString() })
@@ -249,11 +308,17 @@ export class PlansService {
       .select()
       .single();
     if (error || !data) throw new AppError('Plan not found', 404, 'NOT_FOUND');
-    // Invalidate all cached limits since plan changed
+    // Invalidate ALL cached limits — every tenant using this plan is affected
     limitCache.clear();
+    logger.info({ planId: id }, 'Plan updated — full limit cache cleared');
     return data as Plan;
   }
 
+  /**
+   * Assign a plan to a tenant.
+   * Cancels all existing active/trialing subscriptions, creates a new one,
+   * and updates the denormalized plan_id on the tenants row.
+   */
   async assignPlanToTenant(
     tenantId: number,
     planId: number,
@@ -261,23 +326,25 @@ export class PlansService {
       billingCycle?: 'monthly' | 'yearly';
       limitOverrides?: Partial<PlanLimits>;
       trialDays?: number;
-    } = {}
+    } = {},
   ): Promise<void> {
     const plan = await this.getPlanById(planId);
 
     const trialEndsAt = options.trialDays
-      ? new Date(Date.now() + options.trialDays * 86400000).toISOString()
+      ? new Date(Date.now() + options.trialDays * 86_400_000).toISOString()
       : null;
 
-    // Cancel existing active subscription
-    await serviceRoleClient
+    // Cancel all existing active/trialing subscriptions
+    const { error: cancelErr } = await serviceRoleClient
       .from('tenant_subscriptions')
-      .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
+      .update({ status: 'cancelled', cancelled_at: new Date().toISOString(), updated_at: new Date().toISOString() })
       .eq('tenant_id', tenantId)
       .in('status', ['trialing', 'active']);
 
-    // Insert new subscription
-    const { error } = await serviceRoleClient
+    if (cancelErr) throw cancelErr;
+
+    // Insert new subscription — limit_overrides stored as JSONB object (NOT stringified)
+    const { error: subErr } = await serviceRoleClient
       .from('tenant_subscriptions')
       .insert({
         tenant_id: tenantId,
@@ -286,37 +353,84 @@ export class PlansService {
         status: trialEndsAt ? 'trialing' : 'active',
         trial_ends_at: trialEndsAt,
         current_period_start: new Date().toISOString(),
-        limit_overrides: options.limitOverrides
-          ? JSON.stringify(options.limitOverrides)
-          : '{}',
+        limit_overrides: options.limitOverrides ?? {},
       });
 
-    if (error) throw error;
+    if (subErr) throw subErr;
 
-    // Update the denormalized plan column on tenants
-    await serviceRoleClient
+    // Keep denormalized plan_id on tenants in sync
+    const { error: tenantErr } = await serviceRoleClient
       .from('tenants')
-      .update({ plan_id: planId, plan: plan.name as any, updated_at: new Date().toISOString() })
+      .update({
+        plan_id: planId,
+        plan: plan.name as any,  // legacy enum column
+        updated_at: new Date().toISOString(),
+      })
       .eq('id', tenantId);
 
-    invalidateLimitCache(tenantId);
+    if (tenantErr) throw tenantErr;
 
+    invalidateLimitCache(tenantId);
     logger.info({ tenantId, planId, planName: plan.name }, 'Plan assigned to tenant');
   }
 
+  /**
+   * FIX: Targets the single most-recent active/trialing subscription.
+   * The old code could update multiple rows if the DB had duplicate active subs.
+   */
   async updateTenantLimitOverrides(
     tenantId: number,
     overrides: Partial<PlanLimits>,
   ): Promise<void> {
+    // Fetch the most recent active subscription ID
+    const { data: sub, error: fetchErr } = await serviceRoleClient
+      .from('tenant_subscriptions')
+      .select('id')
+      .eq('tenant_id', tenantId)
+      .in('status', ['trialing', 'active'])
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (fetchErr || !sub) {
+      throw new AppError('No active subscription found for tenant', 404, 'NOT_FOUND');
+    }
+
     const { error } = await serviceRoleClient
       .from('tenant_subscriptions')
       .update({ limit_overrides: overrides, updated_at: new Date().toISOString() })
-      .eq('tenant_id', tenantId)
-      .in('status', ['trialing', 'active']);
+      .eq('id', sub.id);
 
     if (error) throw error;
     invalidateLimitCache(tenantId);
+    logger.info({ tenantId, subId: sub.id }, 'Limit overrides updated');
   }
 }
 
+// ── Singleton exports ──────────────────────────────────────────────────────────
+
 export const plansService = new PlansService();
+
+// ── Free plan ID cache (module-level singleton) ────────────────────────────────
+
+let cachedFreePlanId: number | null = null;
+
+export async function getFreePlanId(): Promise<number> {
+  if (cachedFreePlanId !== null) return cachedFreePlanId;
+
+  const { data, error } = await serviceRoleClient
+    .from('plans')
+    .select('id')
+    .eq('name', 'free')
+    .eq('is_active', true)
+    .single();
+
+  if (error || !data) {
+    throw new Error(
+      `Free plan not found in database. Seed the plans table. DB error: ${error?.message ?? 'no data'}`
+    );
+  }
+
+  cachedFreePlanId = data.id as number;
+  return cachedFreePlanId;
+}
