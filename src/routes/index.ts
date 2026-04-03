@@ -87,7 +87,9 @@ contactsRouter.delete('/:id',                                                   
 contactsRouter.post('/:id/tags',        validate(TagSchema),                    (req, res, next) => contactsController.addTag(req, res, next));
 contactsRouter.delete('/:id/tags/:tag',                                         (req, res, next) => contactsController.removeTag(req, res, next));
 contactsRouter.get('/:contactId/calls',                                         (req, res, next) => callsController.getContactCalls(req, res, next));
-
+contactsRouter.post('/bulk', (req, res, next) =>
+  contactsController.bulkCreate(req, res, next)
+);
 // ── MESSAGES ──────────────────────────────────────────────────────────────────
 export const messagesRouter = Router();
 messagesRouter.use(...withTenant);

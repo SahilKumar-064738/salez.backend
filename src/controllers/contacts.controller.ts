@@ -89,6 +89,37 @@ export class ContactsController {
       R.success(res, null, 'Tag removed');
     } catch (e) { next(e); }
   }
+  async bulkCreate(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { user } = req as AuthenticatedRequest;
+
+      const { contacts } = req.body;
+
+      if (!Array.isArray(contacts) || contacts.length === 0) {
+        throw new AppError('contacts must be a non-empty array', 400, 'INVALID_INPUT');
+      }
+
+      // Optional: validate each contact (light validation)
+      const payload = contacts.map((c: any) => {
+        if (!c.phone) {
+          throw new AppError('Each contact must have a phone', 400, 'INVALID_INPUT');
+        }
+
+        return {
+          phone: c.phone,
+          name: c.name || null,
+          email: c.email || null,
+        };
+      });
+
+      const result = await contactsRepository.bulkCreate(user.tenantId, payload);
+
+      R.success(res, result, 'Contacts created successfully');
+
+    } catch (e) {
+      next(e);
+    }
+  }
 }
 
 export const contactsController = new ContactsController();

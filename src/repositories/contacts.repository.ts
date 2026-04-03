@@ -198,6 +198,21 @@ export class ContactsRepository {
     stages.forEach((stage, i) => { stats[stage] = results[i].count ?? 0; });
     return stats;
   }
+  async bulkCreate(tenantId: number, contacts: any[]) {
+    const { data, error } = await serviceRoleClient
+      .from('contacts')
+      .insert(
+        contacts.map(c => ({
+          ...c,
+          tenant_id: tenantId,
+        }))
+      )
+      .select();
+
+    if (error) throw error;
+
+    return data;
+  }
 }
 
 export const contactsRepository = new ContactsRepository();
