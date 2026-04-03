@@ -1,0 +1,1036 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "SaaS CRM & Communication Platform API",
+    "version": "1.0.0",
+    "description": "Multi-tenant WhatsApp, Calls, Campaigns, Contacts & Automation API.\n\n**Authentication:** Bearer JWT token from `/auth/login` in `Authorization` header.\n\n**Base URL:** `https://your-api.com/api/v1`\n\n**All responses** follow the shape:\n```json\n{ \"success\": true, \"data\": {...}, \"message\": \"...\" }\n```\nor on error:\n```json\n{ \"success\": false, \"error\": \"...\", \"code\": \"ERROR_CODE\", \"statusCode\": 4xx }\n```",
+    "contact": { "email": "support@yourcompany.com" }
+  },
+  "servers": [
+    { "url": "https://your-api.com/api/v1", "description": "Production" },
+    { "url": "http://localhost:4000/api/v1", "description": "Local development" }
+  ],
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "JWT token from POST /auth/login"
+      },
+      "ApiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key",
+        "description": "API key for server-to-server integrations"
+      }
+    },
+    "schemas": {
+      "SuccessResponse": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean", "example": true },
+          "data": { "type": "object" },
+          "message": { "type": "string" }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean", "example": false },
+          "error": { "type": "string" },
+          "code": { "type": "string" },
+          "statusCode": { "type": "integer" },
+          "details": { "type": "array", "items": { "type": "object" } }
+        }
+      },
+      "CursorPaginatedResponse": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "data": { "type": "array", "items": {} },
+          "nextCursor": { "type": "string", "nullable": true },
+          "hasMore": { "type": "boolean" }
+        }
+      },
+      "Contact": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "tenant_id": { "type": "integer" },
+          "phone": { "type": "string", "example": "+14155552671" },
+          "name": { "type": "string", "nullable": true },
+          "email": { "type": "string", "nullable": true },
+          "stage": { "type": "string", "enum": ["new","contacted","qualified","converted","lost"] },
+          "notes": { "type": "string", "nullable": true },
+          "tags": { "type": "array", "items": { "type": "string" } },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Message": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "contact_id": { "type": "integer" },
+          "direction": { "type": "string", "enum": ["inbound","outbound"] },
+          "content": { "type": "string" },
+          "status": { "type": "string", "enum": ["pending","sent","delivered","read","failed"] },
+          "media_url": { "type": "string", "nullable": true },
+          "sent_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Campaign": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "name": { "type": "string" },
+          "status": { "type": "string", "enum": ["draft","scheduled","running","completed","failed","cancelled"] },
+          "total_recipients": { "type": "integer" },
+          "sent_count": { "type": "integer" },
+          "failed_count": { "type": "integer" },
+          "scheduled_at": { "type": "string", "format": "date-time", "nullable": true },
+          "created_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Plan": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "name": { "type": "string", "example": "pro" },
+          "display_name": { "type": "string", "example": "Pro" },
+          "price_monthly": { "type": "number", "example": 79.00 },
+          "price_yearly": { "type": "number", "example": 790.00 },
+          "max_users": { "type": "integer" },
+          "max_contacts": { "type": "integer" },
+          "max_whatsapp_accounts": { "type": "integer" },
+          "max_campaigns": { "type": "integer" },
+          "max_api_keys": { "type": "integer" },
+          "rate_limit_per_minute": { "type": "integer" },
+          "features": { "type": "object" },
+          "is_active": { "type": "boolean" }
+        }
+      }
+    },
+    "responses": {
+      "Unauthorized": {
+        "description": "Missing or invalid JWT token",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+      },
+      "Forbidden": {
+        "description": "Insufficient permissions",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+      },
+      "NotFound": {
+        "description": "Resource not found",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+      },
+      "ValidationError": {
+        "description": "Request validation failed",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+      },
+      "PlanLimitExceeded": {
+        "description": "Plan limit reached — upgrade required",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+            "example": {
+              "success": false,
+              "error": "Contacts limit reached (500/500). Upgrade your plan to add more.",
+              "code": "PLAN_LIMIT_EXCEEDED",
+              "statusCode": 429
+            }
+          }
+        }
+      }
+    }
+  },
+  "security": [{ "BearerAuth": [] }],
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": ["System"],
+        "summary": "Health check",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Server is healthy",
+            "content": {
+              "application/json": {
+                "example": { "status": "ok", "timestamp": "2026-04-03T10:00:00Z", "uptime": 3600, "version": "v1" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/register": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Register a new business account",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["businessName","email","password","displayName"],
+                "properties": {
+                  "businessName": { "type": "string", "minLength": 2, "maxLength": 100, "example": "Acme Corp" },
+                  "email": { "type": "string", "format": "email", "example": "owner@acme.com" },
+                  "password": { "type": "string", "minLength": 8, "example": "SecurePass123!" },
+                  "displayName": { "type": "string", "minLength": 2, "maxLength": 80, "example": "John Doe" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Account created + logged in",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "data": {
+                    "userId": "uuid",
+                    "tenantId": 1,
+                    "tenantSlug": "acme-corp",
+                    "email": "owner@acme.com",
+                    "accessToken": "eyJ...",
+                    "refreshToken": "eyJ..."
+                  },
+                  "message": "Account created successfully"
+                }
+              }
+            }
+          },
+          "409": { "description": "Email already registered" },
+          "422": { "$ref": "#/components/responses/ValidationError" }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Login",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email","password"],
+                "properties": {
+                  "email": { "type": "string", "format": "email" },
+                  "password": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "data": {
+                    "accessToken": "eyJ...",
+                    "refreshToken": "eyJ...",
+                    "expiresAt": 1743000000,
+                    "user": { "id": "uuid", "email": "owner@acme.com", "tenantId": 1, "role": "owner", "displayName": "John Doe" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "Invalid credentials" }
+        }
+      }
+    },
+    "/auth/refresh": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Refresh access token",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["refreshToken"],
+                "properties": { "refreshToken": { "type": "string" } }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "New tokens issued" },
+          "401": { "description": "Invalid or expired refresh token" }
+        }
+      }
+    },
+    "/auth/me": {
+      "get": {
+        "tags": ["Auth"],
+        "summary": "Get current user profile",
+        "responses": {
+          "200": {
+            "description": "Current user",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "data": {
+                    "id": "uuid", "email": "owner@acme.com",
+                    "tenantId": 1, "role": "owner",
+                    "displayName": "John Doe", "avatarUrl": null,
+                    "tenant": { "id": 1, "name": "Acme Corp", "slug": "acme-corp", "plan": "free", "status": "active" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/auth/change-password": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Change password",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "type": "object", "required": ["password"], "properties": { "password": { "type": "string", "minLength": 8 } } }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Password changed" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Logout (revokes server-side session)",
+        "responses": { "200": { "description": "Logged out" } }
+      }
+    },
+    "/contacts": {
+      "get": {
+        "tags": ["Contacts"],
+        "summary": "List contacts (cursor paginated)",
+        "parameters": [
+          { "in": "query", "name": "stage", "schema": { "type": "string", "enum": ["new","contacted","qualified","converted","lost"] } },
+          { "in": "query", "name": "search", "schema": { "type": "string" }, "description": "Search by name/phone/email" },
+          { "in": "query", "name": "tag", "schema": { "type": "string" }, "description": "Filter by tag" },
+          { "in": "query", "name": "cursor", "schema": { "type": "string" }, "description": "Opaque pagination cursor" },
+          { "in": "query", "name": "limit", "schema": { "type": "integer", "default": 50, "maximum": 100 } }
+        ],
+        "responses": {
+          "200": { "description": "Paginated contact list", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CursorPaginatedResponse" } } } }
+        }
+      },
+      "post": {
+        "tags": ["Contacts"],
+        "summary": "Create a contact",
+        "description": "❗ Plan limit enforced: `max_contacts`",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["phone"],
+                "properties": {
+                  "phone": { "type": "string", "example": "+14155552671" },
+                  "name": { "type": "string" },
+                  "email": { "type": "string", "format": "email" },
+                  "stage": { "type": "string", "enum": ["new","contacted","qualified","converted","lost"], "default": "new" },
+                  "notes": { "type": "string", "maxLength": 2000 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Contact created" },
+          "409": { "description": "Phone number already exists" },
+          "429": { "$ref": "#/components/responses/PlanLimitExceeded" }
+        }
+      }
+    },
+    "/contacts/pipeline-stats": {
+      "get": {
+        "tags": ["Contacts"],
+        "summary": "Get contact counts by pipeline stage",
+        "responses": {
+          "200": {
+            "description": "Stage counts",
+            "content": {
+              "application/json": {
+                "example": { "success": true, "data": { "new": 120, "contacted": 45, "qualified": 30, "converted": 15, "lost": 10 } }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/contacts/bulk": {
+      "post": {
+        "tags": ["Contacts"],
+        "summary": "Bulk create contacts",
+        "description": "Import up to 1000 contacts in one request. Skips duplicates by phone.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["contacts"],
+                "properties": {
+                  "contacts": {
+                    "type": "array",
+                    "maxItems": 1000,
+                    "items": {
+                      "type": "object",
+                      "required": ["phone"],
+                      "properties": {
+                        "phone": { "type": "string" },
+                        "name": { "type": "string" },
+                        "email": { "type": "string" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Bulk import result" } }
+      }
+    },
+    "/contacts/{id}": {
+      "get": {
+        "tags": ["Contacts"],
+        "summary": "Get contact by ID",
+        "parameters": [{ "in": "path", "name": "id", "required": true, "schema": { "type": "integer" } }],
+        "responses": { "200": { "description": "Contact" }, "404": { "$ref": "#/components/responses/NotFound" } }
+      },
+      "patch": {
+        "tags": ["Contacts"],
+        "summary": "Update contact",
+        "parameters": [{ "in": "path", "name": "id", "required": true, "schema": { "type": "integer" } }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "email": { "type": "string", "format": "email" },
+                  "stage": { "type": "string", "enum": ["new","contacted","qualified","converted","lost"] },
+                  "notes": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Updated contact" } }
+      },
+      "delete": {
+        "tags": ["Contacts"],
+        "summary": "Soft-delete contact",
+        "parameters": [{ "in": "path", "name": "id", "required": true, "schema": { "type": "integer" } }],
+        "responses": { "200": { "description": "Deleted" } }
+      }
+    },
+    "/contacts/{id}/tags": {
+      "post": {
+        "tags": ["Contacts"],
+        "summary": "Add a tag to a contact",
+        "parameters": [{ "in": "path", "name": "id", "required": true, "schema": { "type": "integer" } }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "type": "object", "required": ["tag"], "properties": { "tag": { "type": "string", "pattern": "^[a-zA-Z0-9_-]+$" } } }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Tag added" } }
+      }
+    },
+    "/contacts/{id}/tags/{tag}": {
+      "delete": {
+        "tags": ["Contacts"],
+        "summary": "Remove a tag from a contact",
+        "parameters": [
+          { "in": "path", "name": "id", "required": true, "schema": { "type": "integer" } },
+          { "in": "path", "name": "tag", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "Tag removed" } }
+      }
+    },
+    "/messages/send": {
+      "post": {
+        "tags": ["Messages"],
+        "summary": "Send a WhatsApp message",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["contactId","whatsappAccountId","content"],
+                "properties": {
+                  "contactId": { "type": "integer" },
+                  "whatsappAccountId": { "type": "integer" },
+                  "content": { "type": "string", "maxLength": 4096 },
+                  "mediaUrl": { "type": "string", "format": "uri" },
+                  "mediaType": { "type": "string", "example": "image/jpeg" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Message queued",
+            "content": {
+              "application/json": {
+                "example": { "success": true, "data": { "messageId": 42, "status": "pending", "queuedAt": "2026-04-03T10:00:00Z" } }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/messages/inbox": {
+      "get": {
+        "tags": ["Messages"],
+        "summary": "Get message inbox (latest conversation per contact)",
+        "parameters": [
+          { "in": "query", "name": "cursor", "schema": { "type": "string" } },
+          { "in": "query", "name": "limit", "schema": { "type": "integer", "default": 30 } },
+          { "in": "query", "name": "unreadOnly", "schema": { "type": "boolean", "default": false } }
+        ],
+        "responses": { "200": { "description": "Inbox list" } }
+      }
+    },
+    "/messages/conversation/{contactId}": {
+      "get": {
+        "tags": ["Messages"],
+        "summary": "Get full conversation with a contact",
+        "parameters": [
+          { "in": "path", "name": "contactId", "required": true, "schema": { "type": "integer" } },
+          { "in": "query", "name": "cursor", "schema": { "type": "string" } },
+          { "in": "query", "name": "limit", "schema": { "type": "integer", "default": 50 } }
+        ],
+        "responses": { "200": { "description": "Message thread" } }
+      }
+    },
+    "/messages/conversation/{contactId}/read": {
+      "put": {
+        "tags": ["Messages"],
+        "summary": "Mark all messages in conversation as read",
+        "parameters": [{ "in": "path", "name": "contactId", "required": true, "schema": { "type": "integer" } }],
+        "responses": { "200": { "description": "Marked as read" } }
+      }
+    },
+    "/campaigns": {
+      "get": {
+        "tags": ["Campaigns"],
+        "summary": "List campaigns",
+        "responses": { "200": { "description": "Campaign list" } }
+      },
+      "post": {
+        "tags": ["Campaigns"],
+        "summary": "Create a campaign",
+        "description": "❗ Plan limit enforced: `max_campaigns`",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name","templateId","whatsappAccountId"],
+                "properties": {
+                  "name": { "type": "string" },
+                  "templateId": { "type": "integer" },
+                  "whatsappAccountId": { "type": "integer" },
+                  "scheduledAt": { "type": "string", "format": "date-time" },
+                  "contactIds": { "type": "array", "items": { "type": "integer" } },
+                  "filters": {
+                    "type": "object",
+                    "properties": {
+                      "stage": { "type": "string" },
+                      "tags": { "type": "array", "items": { "type": "string" } }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "201": { "description": "Campaign created" }, "429": { "$ref": "#/components/responses/PlanLimitExceeded" } }
+      }
+    },
+    "/campaigns/{id}/send": {
+      "post": {
+        "tags": ["Campaigns"],
+        "summary": "Trigger campaign send",
+        "parameters": [{ "in": "path", "name": "id", "required": true, "schema": { "type": "integer" } }],
+        "responses": { "200": { "description": "Campaign queued for sending" } }
+      }
+    },
+    "/campaigns/{id}/cancel": {
+      "post": {
+        "tags": ["Campaigns"],
+        "summary": "Cancel a running/scheduled campaign",
+        "parameters": [{ "in": "path", "name": "id", "required": true, "schema": { "type": "integer" } }],
+        "responses": { "200": { "description": "Campaign cancelled" } }
+      }
+    },
+    "/campaigns/templates": {
+      "get": {
+        "tags": ["Campaigns"],
+        "summary": "List message templates",
+        "responses": { "200": { "description": "Template list" } }
+      },
+      "post": {
+        "tags": ["Campaigns"],
+        "summary": "Create message template",
+        "description": "❗ Plan limit enforced: `max_message_templates`",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name","content"],
+                "properties": {
+                  "name": { "type": "string" },
+                  "content": { "type": "string", "maxLength": 4096 },
+                  "variables": { "type": "array", "items": { "type": "string" } },
+                  "category": { "type": "string", "enum": ["marketing","utility","authentication"], "default": "marketing" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "201": { "description": "Template created" } }
+      }
+    },
+    "/whatsapp-accounts": {
+      "get": {
+        "tags": ["WhatsApp"],
+        "summary": "List connected WhatsApp accounts",
+        "responses": { "200": { "description": "Account list" } }
+      },
+      "post": {
+        "tags": ["WhatsApp"],
+        "summary": "Connect a WhatsApp account",
+        "description": "❗ Plan limit enforced: `max_whatsapp_accounts`",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["phoneNumber","apiToken","provider"],
+                "properties": {
+                  "phoneNumber": { "type": "string" },
+                  "displayName": { "type": "string" },
+                  "apiToken": { "type": "string" },
+                  "provider": { "type": "string", "enum": ["meta","twilio","vonage","wati"] },
+                  "dailyMessageLimit": { "type": "integer", "default": 1000 }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "201": { "description": "Account connected" }, "429": { "$ref": "#/components/responses/PlanLimitExceeded" } }
+      }
+    },
+    "/api-keys": {
+      "get": { "tags": ["API Keys"], "summary": "List API keys", "responses": { "200": { "description": "Key list" } } },
+      "post": {
+        "tags": ["API Keys"],
+        "summary": "Create an API key",
+        "description": "❗ Plan limit enforced: `max_api_keys`\n\nThe raw key is only returned **once** at creation. Store it securely.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name"],
+                "properties": {
+                  "name": { "type": "string" },
+                  "scopes": { "type": "array", "items": { "type": "string" }, "default": ["*"] },
+                  "expiresAt": { "type": "string", "format": "date-time" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "API key created — raw key returned ONCE",
+            "content": {
+              "application/json": {
+                "example": { "success": true, "data": { "id": 1, "name": "My Key", "key": "pk_live_xxxx", "scopes": ["*"], "expiresAt": null } }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-keys/{id}": {
+      "delete": {
+        "tags": ["API Keys"],
+        "summary": "Revoke an API key",
+        "parameters": [{ "in": "path", "name": "id", "required": true, "schema": { "type": "integer" } }],
+        "responses": { "200": { "description": "Key revoked" } }
+      }
+    },
+    "/calls": {
+      "get": {
+        "tags": ["Calls"],
+        "summary": "List calls",
+        "parameters": [
+          { "in": "query", "name": "status", "schema": { "type": "string" } },
+          { "in": "query", "name": "direction", "schema": { "type": "string", "enum": ["inbound","outbound"] } },
+          { "in": "query", "name": "contact_id", "schema": { "type": "integer" } },
+          { "in": "query", "name": "from_date", "schema": { "type": "string", "format": "date-time" } },
+          { "in": "query", "name": "to_date", "schema": { "type": "string", "format": "date-time" } },
+          { "in": "query", "name": "cursor", "schema": { "type": "string" } },
+          { "in": "query", "name": "limit", "schema": { "type": "integer", "default": 30 } }
+        ],
+        "responses": { "200": { "description": "Call list" } }
+      }
+    },
+    "/calls/stats": {
+      "get": {
+        "tags": ["Calls"],
+        "summary": "Call statistics summary",
+        "parameters": [
+          { "in": "query", "name": "from_date", "schema": { "type": "string", "format": "date-time" } },
+          { "in": "query", "name": "to_date", "schema": { "type": "string", "format": "date-time" } },
+          { "in": "query", "name": "group_by", "schema": { "type": "string", "enum": ["day","week","month"] } }
+        ],
+        "responses": { "200": { "description": "Stats" } }
+      }
+    },
+    "/calls/{id}/transcripts": {
+      "get": {
+        "tags": ["Calls"],
+        "summary": "Get call transcripts",
+        "parameters": [{ "in": "path", "name": "id", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Transcript segments" } }
+      },
+      "post": {
+        "tags": ["Calls"],
+        "summary": "Add transcript segment",
+        "parameters": [{ "in": "path", "name": "id", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["speaker","content"],
+                "properties": {
+                  "speaker": { "type": "string", "enum": ["agent","customer","system"] },
+                  "content": { "type": "string" },
+                  "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+                  "segment_start_ms": { "type": "integer" },
+                  "segment_end_ms": { "type": "integer" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "201": { "description": "Transcript added" } }
+      }
+    },
+    "/analytics/calls": {
+      "get": {
+        "tags": ["Analytics"],
+        "summary": "Call analytics",
+        "description": "❗ Feature flag: `analytics`",
+        "parameters": [
+          { "in": "query", "name": "from_date", "schema": { "type": "string", "format": "date-time" } },
+          { "in": "query", "name": "to_date", "schema": { "type": "string", "format": "date-time" } }
+        ],
+        "responses": { "200": { "description": "Call analytics data" } }
+      }
+    },
+    "/analytics/messages": {
+      "get": {
+        "tags": ["Analytics"],
+        "summary": "Message delivery analytics",
+        "description": "❗ Feature flag: `analytics`",
+        "responses": { "200": { "description": "Message stats" } }
+      }
+    },
+    "/analytics/campaigns": {
+      "get": {
+        "tags": ["Analytics"],
+        "summary": "Campaign performance analytics",
+        "description": "❗ Feature flag: `analytics`",
+        "responses": { "200": { "description": "Campaign stats" } }
+      }
+    },
+    "/analytics/api-usage": {
+      "get": {
+        "tags": ["Analytics"],
+        "summary": "API usage stats",
+        "description": "❗ Feature flag: `analytics`",
+        "responses": { "200": { "description": "API usage" } }
+      }
+    },
+    "/settings": {
+      "get": { "tags": ["Settings"], "summary": "Get tenant settings", "responses": { "200": { "description": "Settings" } } },
+      "patch": {
+        "tags": ["Settings"],
+        "summary": "Update tenant settings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "timezone": { "type": "string", "example": "America/New_York" },
+                  "webhook_url": { "type": "string", "format": "uri", "nullable": true }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Settings updated" } }
+      }
+    },
+    "/settings/plan": {
+      "get": {
+        "tags": ["Settings"],
+        "summary": "Get current plan + effective limits",
+        "responses": {
+          "200": {
+            "description": "Plan limits",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "data": {
+                    "max_users": 5,
+                    "max_contacts": 2000,
+                    "max_whatsapp_accounts": 2,
+                    "max_campaigns": 10,
+                    "rate_limit_per_minute": 60,
+                    "features": { "analytics": true, "automation": false, "ivr": false }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/settings/webhook-secret": {
+      "post": {
+        "tags": ["Settings"],
+        "summary": "Rotate webhook signing secret",
+        "responses": { "200": { "description": "New secret returned once" } }
+      }
+    },
+    "/automation": {
+      "get": {
+        "tags": ["Automation"],
+        "summary": "List automation rules",
+        "description": "❗ Feature flag: `automation`",
+        "responses": { "200": { "description": "Rules list" } }
+      },
+      "post": {
+        "tags": ["Automation"],
+        "summary": "Create automation rule",
+        "description": "❗ Feature flag: `automation`",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name","trigger_type","conditions","actions"],
+                "properties": {
+                  "name": { "type": "string" },
+                  "trigger_type": { "type": "string", "example": "message_received" },
+                  "conditions": { "type": "object" },
+                  "actions": { "type": "array", "items": { "type": "object" } }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "201": { "description": "Rule created" } }
+      }
+    },
+    "/automation/{id}/toggle": {
+      "post": {
+        "tags": ["Automation"],
+        "summary": "Toggle automation rule on/off",
+        "parameters": [{ "in": "path", "name": "id", "required": true, "schema": { "type": "integer" } }],
+        "responses": { "200": { "description": "Toggle result" } }
+      }
+    },
+    "/admin/plans": {
+      "get": {
+        "tags": ["Admin — Plans"],
+        "summary": "List all plans (admin)",
+        "responses": { "200": { "description": "Plans list" } }
+      },
+      "post": {
+        "tags": ["Admin — Plans"],
+        "summary": "Create a new plan",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/Plan" }
+            }
+          }
+        },
+        "responses": { "201": { "description": "Plan created" } }
+      }
+    },
+    "/admin/plans/{id}": {
+      "patch": {
+        "tags": ["Admin — Plans"],
+        "summary": "Update a plan",
+        "parameters": [{ "in": "path", "name": "id", "required": true, "schema": { "type": "integer" } }],
+        "requestBody": {
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Plan" } } }
+        },
+        "responses": { "200": { "description": "Plan updated" } }
+      }
+    },
+    "/admin/tenants/{tenantId}/plan": {
+      "post": {
+        "tags": ["Admin — Plans"],
+        "summary": "Assign a plan to a tenant",
+        "parameters": [{ "in": "path", "name": "tenantId", "required": true, "schema": { "type": "integer" } }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["planId"],
+                "properties": {
+                  "planId": { "type": "integer" },
+                  "billingCycle": { "type": "string", "enum": ["monthly","yearly"] },
+                  "trialDays": { "type": "integer", "minimum": 0, "maximum": 365 },
+                  "limitOverrides": { "type": "object", "description": "Per-tenant limit overrides on top of the plan" }
+                }
+              },
+              "example": { "planId": 3, "billingCycle": "monthly", "trialDays": 14 }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Plan assigned" } }
+      }
+    },
+    "/admin/tenants/{tenantId}/plan/overrides": {
+      "patch": {
+        "tags": ["Admin — Plans"],
+        "summary": "Update per-tenant limit overrides",
+        "parameters": [{ "in": "path", "name": "tenantId", "required": true, "schema": { "type": "integer" } }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "example": { "overrides": { "max_contacts": 50000, "max_users": 25 } }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Overrides updated" } }
+      }
+    },
+    "/admin/tenants/{tenantId}/plan/limits": {
+      "get": {
+        "tags": ["Admin — Plans"],
+        "summary": "Inspect effective limits for a tenant",
+        "parameters": [{ "in": "path", "name": "tenantId", "required": true, "schema": { "type": "integer" } }],
+        "responses": { "200": { "description": "Effective limits" } }
+      }
+    },
+    "/admin/users": {
+      "get": {
+        "tags": ["Admin — Users"],
+        "summary": "List all users across tenants",
+        "parameters": [
+          { "in": "query", "name": "tenantId", "schema": { "type": "integer" } },
+          { "in": "query", "name": "page", "schema": { "type": "integer", "default": 1 } },
+          { "in": "query", "name": "limit", "schema": { "type": "integer", "default": 20 } }
+        ],
+        "responses": { "200": { "description": "User list" } }
+      }
+    },
+    "/admin/tenants": {
+      "get": {
+        "tags": ["Admin — Tenants"],
+        "summary": "List all tenants",
+        "parameters": [
+          { "in": "query", "name": "status", "schema": { "type": "string" } },
+          { "in": "query", "name": "plan", "schema": { "type": "string" } },
+          { "in": "query", "name": "page", "schema": { "type": "integer" } },
+          { "in": "query", "name": "limit", "schema": { "type": "integer" } }
+        ],
+        "responses": { "200": { "description": "Tenant list" } }
+      }
+    },
+    "/webhooks/meta": {
+      "get": {
+        "tags": ["Webhooks"],
+        "summary": "Meta webhook verification (hub challenge)",
+        "security": [],
+        "parameters": [
+          { "in": "query", "name": "hub.mode", "schema": { "type": "string" } },
+          { "in": "query", "name": "hub.verify_token", "schema": { "type": "string" } },
+          { "in": "query", "name": "hub.challenge", "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "Returns hub.challenge" } }
+      },
+      "post": {
+        "tags": ["Webhooks"],
+        "summary": "Receive Meta/WhatsApp webhook events",
+        "security": [],
+        "description": "Verified via X-Hub-Signature-256 HMAC header.",
+        "responses": { "200": { "description": "Acknowledged" } }
+      }
+    }
+  },
+  "tags": [
+    { "name": "System" },
+    { "name": "Auth" },
+    { "name": "Contacts" },
+    { "name": "Messages" },
+    { "name": "Campaigns" },
+    { "name": "WhatsApp" },
+    { "name": "API Keys" },
+    { "name": "Calls" },
+    { "name": "Analytics" },
+    { "name": "Settings" },
+    { "name": "Automation" },
+    { "name": "Webhooks" },
+    { "name": "Admin — Plans" },
+    { "name": "Admin — Users" },
+    { "name": "Admin — Tenants" }
+  ]
+}

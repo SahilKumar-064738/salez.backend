@@ -45,7 +45,31 @@ export const ContactsQuerySchema = z.object({
 });
 
 export const TagSchema = z.object({
-  tag: z.string().min(1).max(64).regex(/^[a-z0-9_-]+$/i, 'Tag may only contain letters, numbers, hyphens and underscores'),
+  tag: z
+    .string()
+    .min(1)
+    .max(64)
+    .regex(/^[a-z0-9_-]+$/i, 'Tag may only contain letters, numbers, hyphens and underscores'),
+});
+
+/**
+ * BulkCreateContactSchema
+ * Each entry validated with the same rules as single create.
+ * Capped at 500 per request to prevent memory/timeout issues.
+ */
+export const BulkCreateContactSchema = z.object({
+  contacts: z
+    .array(
+      z.object({
+        phone: z.string().min(7).max(20),
+        name: z.string().max(150).optional(),
+        email: z.string().email().optional(),
+        stage: z.enum(['new', 'contacted', 'qualified', 'converted', 'lost']).optional(),
+        notes: z.string().max(2000).optional(),
+      })
+    )
+    .min(1, 'contacts must be a non-empty array')
+    .max(500, 'Maximum 500 contacts per bulk request'),
 });
 
 // ── MESSAGES ─────────────────────────────────────────────────────────────────
@@ -105,12 +129,17 @@ export const UpdateCampaignSchema = z.object({
 
 const VALID_SCOPES = [
   '*',
-  'contacts:read', 'contacts:write',
-  'messages:read', 'messages:write',
-  'campaigns:read', 'campaigns:write',
+  'contacts:read',
+  'contacts:write',
+  'messages:read',
+  'messages:write',
+  'campaigns:read',
+  'campaigns:write',
   'calls:read',
-  'whatsapp:read', 'whatsapp:write',
-  'settings:read', 'settings:write',
+  'whatsapp:read',
+  'whatsapp:write',
+  'settings:read',
+  'settings:write',
 ] as const;
 
 export const CreateApiKeySchema = z.object({
@@ -148,7 +177,16 @@ export const CallsListSchema = z.object({
   cursor: z.string().optional(),
   limit: z.coerce.number().int().min(1).max(100).default(30),
   status: z
-    .enum(['initiated', 'ringing', 'in-progress', 'completed', 'busy', 'failed', 'no-answer', 'cancelled'])
+    .enum([
+      'initiated',
+      'ringing',
+      'in-progress',
+      'completed',
+      'busy',
+      'failed',
+      'no-answer',
+      'cancelled',
+    ])
     .optional(),
   direction: z.enum(['inbound', 'outbound']).optional(),
   from_date: z.string().datetime({ offset: true }).optional(),
@@ -157,11 +195,81 @@ export const CallsListSchema = z.object({
 });
 
 export const CallStatsSchema = z.object({
-  from_date: z.string().datetime({ offset: true }).default(
-    () => new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
-  ),
-  to_date: z.string().datetime({ offset: true }).default(() => new Date().toISOString()),
+  from_date: z
+    .string()
+    .datetime({ offset: true })
+    .default(() => new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()),
+  to_date: z
+    .string()
+    .datetime({ offset: true })
+    .default(() => new Date().toISOString()),
   group_by: z.enum(['day', 'week', 'month']).optional(),
+});
+
+const CallStatusEnum = z.enum([
+  'initiated',
+  'ringing',
+  'in-progress',
+  'completed',
+  'busy',
+  'failed',
+  'no-answer',
+  'cancelled',
+]);
+
+export const CreateCallSchema = z.object({
+  id: z.string().optional(),
+  direction: z.enum(['inbound', 'outbound']),
+  from_number: z.string().min(5).max(30),
+  to_number: z.string().min(5).max(30),
+  status: CallStatusEnum.optional(),
+  contact_id: z.number().int().positive().optional(),
+  assigned_user_id: z.string().uuid().optional(),
+  ivr_flow_id: z.string().max(100).optional(),
+  started_at: z.string().datetime({ offset: true }).optional(),
+});
+
+export const UpdateCallSchema = z.object({
+  status: CallStatusEnum.optional(),
+  answered_at: z.string().datetime().nullable().optional(),
+  ended_at: z.string().datetime().nullable().optional(),
+  duration_seconds: z.number().int().nonnegative().optional(),
+  cost: z.number().nonnegative().optional(),
+  cost_currency: z.string().length(3).optional(),
+  assigned_user_id: z.string().uuid().nullable().optional(),
+  contact_id: z.number().int().positive().nullable().optional(),
+});
+
+export const CreateCallEventSchema = z.object({
+  event_type: z.string().min(1).max(100),
+  metadata: z.record(z.unknown()).optional(),
+  created_at: z.string().datetime().optional(),
+});
+
+export const CreateCallTranscriptSchema = z.object({
+  speaker: z.enum(['agent', 'customer', 'system']),
+  content: z.string().min(1).max(10000),
+  confidence: z.number().min(0).max(1).optional(),
+  segment_start_ms: z.number().int().nonnegative().optional(),
+  segment_end_ms: z.number().int().nonnegative().optional(),
+});
+
+export const CreateCallRecordingSchema = z.object({
+  recording_url: z.string().url(),
+  storage_path: z.string().optional(),
+  duration_seconds: z.number().int().nonnegative().optional(),
+  size_bytes: z.number().int().nonnegative().optional(),
+});
+
+export const CreateCallMetricsSchema = z.object({
+  stt_latency_ms: z.number().int().nonnegative().optional(),
+  llm_latency_ms: z.number().int().nonnegative().optional(),
+  tts_latency_ms: z.number().int().nonnegative().optional(),
+  total_latency_ms: z.number().int().nonnegative().optional(),
+  packet_loss: z.number().min(0).max(1).optional(),
+  jitter_ms: z.number().nonnegative().optional(),
+  bitrate_kbps: z.number().int().positive().optional(),
+  mos_score: z.number().min(1).max(5).optional(),
 });
 
 // ── TENANT SETTINGS ───────────────────────────────────────────────────────────
@@ -212,45 +320,7 @@ export function validate<T extends z.ZodTypeAny>(
       next(result.error);
       return;
     }
-    // Attach parsed + coerced data back onto the request
     (req as Request & { [key: string]: unknown })[target] = result.data;
     next();
   };
 }
-export const CreateCallEventSchema = z.object({ event_type: z.string().min(1).max(100), metadata: z.record(z.unknown()).optional(), created_at: z.string().datetime().optional() });
-export const CreateCallTranscriptSchema = z.object({ speaker: z.enum(['agent','customer','system']), content: z.string().min(1).max(10000), confidence: z.number().min(0).max(1).optional(), segment_start_ms: z.number().int().nonnegative().optional(), segment_end_ms: z.number().int().nonnegative().optional() });
-export const CreateCallRecordingSchema = z.object({ recording_url: z.string().url(), storage_path: z.string().optional(), duration_seconds: z.number().int().nonnegative().optional(), size_bytes: z.number().int().nonnegative().optional() });
-export const CreateCallMetricsSchema = z.object({ stt_latency_ms: z.number().int().nonnegative().optional(), llm_latency_ms: z.number().int().nonnegative().optional(), tts_latency_ms: z.number().int().nonnegative().optional(), total_latency_ms: z.number().int().nonnegative().optional(), packet_loss: z.number().min(0).max(1).optional(), jitter_ms: z.number().nonnegative().optional(), bitrate_kbps: z.number().int().positive().optional(), mos_score: z.number().min(1).max(5).optional() });
-const CallStatusEnum = z.enum([
-  'initiated',
-  'ringing',
-  'in-progress',
-  'completed',
-  'busy',
-  'failed',
-  'no-answer',
-  'cancelled',
-]);
-
-export const CreateCallSchema = z.object({
-  id: z.string().optional(),
-  direction: z.enum(['inbound','outbound']),
-  from_number: z.string().min(5).max(30),
-  to_number: z.string().min(5).max(30),
-  status: CallStatusEnum.optional(),
-  contact_id: z.number().int().positive().optional(),
-  assigned_user_id: z.string().uuid().optional(),
-  ivr_flow_id: z.string().max(100).optional(),
-  started_at: z.string().datetime({ offset: true }).optional(),
-});
-
-export const UpdateCallSchema = z.object({
-  status: CallStatusEnum.optional(),
-  answered_at: z.string().datetime().nullable().optional(),
-  ended_at: z.string().datetime().nullable().optional(),
-  duration_seconds: z.number().int().nonnegative().optional(),
-  cost: z.number().nonnegative().optional(),
-  cost_currency: z.string().length(3).optional(),
-  assigned_user_id: z.string().uuid().nullable().optional(),
-  contact_id: z.number().int().positive().nullable().optional(),
-});
