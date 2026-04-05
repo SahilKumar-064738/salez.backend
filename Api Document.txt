@@ -958,6 +958,30 @@ Toggle a rule on/off without deleting it.
 ```
 
 ---
+EndpointMethodAuthDescription/api/v1/plansGETNoneList all active plans with limits & features/api/v1/recordsGETBearerList all client records for your tenant/api/v1/recordsPOSTBearerCreate a new client record/api/v1/records/:idGETBearerGet one record by ID/api/v1/records/:idDELETEBearerDelete a record
+POST /api/v1/records — Request Body:
+json{
+  "client_name": "Ramesh Kumar",
+  "phone": "+919999999999",
+  "service_type": "GST",
+  "due_date": "2025-07-31",
+  "reminder_days_before": 3,
+  "data": { "PAN": "ABCDE1234F", "GSTIN": "27ABCDE1234F1Z5" }
+}
+GET /api/v1/plans — Response:
+json{
+  "success": true,
+  "data": [{
+    "id": 1,
+    "name": "starter",
+    "display_name": "Starter",
+    "price": 1999,
+    "price_monthly": 1999,
+    "price_yearly": 19990,
+    "limits": { "max_users": 5, "max_contacts": 2000, ... },
+    "features": { "analytics": true, "automation": false, ... }
+  }]
+}
 
 ## Error Reference
 

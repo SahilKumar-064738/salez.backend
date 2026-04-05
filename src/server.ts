@@ -9,6 +9,8 @@ import 'dotenv/config';
 import express, { Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import { recordsRouter } from './routes/records.routes';
+import { publicPlansController } from './controllers/publicPlans.controller';
 
 import { env } from './config/env';
 import { connectRedis, disconnectRedis } from './config/redis';
@@ -128,6 +130,8 @@ app.use(`${API}/settings`,          settingsRouter);
 app.use(`${API}/automation`,        automationRouter);   // ← NEW
 app.use(`${API}/admin`,             adminRouter);
 app.use(`${API}/ivr`,               ivrRouter);
+app.use(`${API}/records`,  recordsRouter);
+app.get(`${API}/plans`,    (req, res, next) => publicPlansController.list(req, res, next));
 
 // ── ERROR HANDLING ────────────────────────────────────────────────────────────
 app.use(notFound);

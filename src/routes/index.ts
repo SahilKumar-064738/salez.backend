@@ -164,3 +164,7 @@ export const webhooksRouter = Router();
 webhooksRouter.get('/meta',    (req, res, next) => messagesController.verifyMetaWebhook(req, res, next));
 webhooksRouter.post('/meta',   captureRawBody, (req, res, next) => messagesController.receiveMetaWebhook(req, res, next));
 webhooksRouter.post('/twilio', captureRawBody, (req, res, next) => messagesController.receiveTwilioWebhook(req, res, next));
+
+// ADD these two lines alongside the other exports
+export { recordsRouter }     from './records.routes';
+export { publicPlansController } from '../controllers/publicPlans.controller';
